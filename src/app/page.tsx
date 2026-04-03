@@ -42,6 +42,7 @@ function getTestWallet(code: string): string {
 }
 
 export default function ExchangePage() {
+  const [mode, setMode] = useState<"BUY" | "SELL">("BUY");
   const [countries, setCountries] = useState<MeldCountry[]>([]);
   const [countryCode, setCountryCode] = useState("US");
   const [defaults, setDefaults] = useState<CountryDefaults | null>(null);
@@ -63,6 +64,8 @@ export default function ExchangePage() {
   const [tokenSelectorOpen, setTokenSelectorOpen] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const isBuy = mode === "BUY";
 
   useEffect(() => {
     async function init() {
@@ -116,6 +119,14 @@ export default function ExchangePage() {
     }
   }
 
+  function handleSwapMode() {
+    setMode((prev) => (prev === "BUY" ? "SELL" : "BUY"));
+    setQuotes([]);
+    setError(null);
+    setAmount("100");
+    setAmountError(null);
+  }
+
   const handleCountryChange = useCallback(async (code: string) => {
     setCountryCode(code);
     setQuotes([]);
@@ -152,18 +163,13 @@ export default function ExchangePage() {
   function validateAmount(val: string): boolean {
     const num = parseFloat(val);
     if (!val || isNaN(num)) { setAmountError(null); return true; }
-    if (!limits || !limits[fiatCurrency]) { setAmountError(null); return true; }
-    const lim = limits[fiatCurrency];
-    if (num < lim.minAmount) {
-      setAmountError(`Min: ${lim.minAmount} ${fiatCurrency}`);
-      return false;
-    } else if (num > lim.maxAmount) {
-      setAmountError(`Max: ${lim.maxAmount.toLocaleString()} ${fiatCurrency}`);
-      return false;
-    } else {
-      setAmountError(null);
-      return true;
+    if (isBuy && limits && limits[fiatCurrency]) {
+      const lim = limits[fiatCurrency];
+      if (num < lim.minAmount) { setAmountError(`Min: ${lim.minAmount} ${fiatCurrency}`); return false; }
+      if (num > lim.maxAmount) { setAmountError(`Max: ${lim.maxAmount.toLocaleString()} ${fiatCurrency}`); return false; }
     }
+    setAmountError(null);
+    return true;
   }
 
   function handleAmountChange(val: string) {
@@ -186,10 +192,17 @@ export default function ExchangePage() {
     try {
       const body: Record<string, unknown> = {
         countryCode,
-        sourceCurrencyCode: fiatCurrency,
-        destinationCurrencyCode: selectedCrypto,
         sourceAmount: parseFloat(amt),
       };
+
+      if (isBuy) {
+        body.sourceCurrencyCode = fiatCurrency;
+        body.destinationCurrencyCode = selectedCrypto;
+      } else {
+        body.sourceCurrencyCode = selectedCrypto;
+        body.destinationCurrencyCode = fiatCurrency;
+      }
+
       if (selectedPayment) body.paymentMethodType = selectedPayment;
       if (walletAddress.trim()) body.walletAddress = walletAddress.trim();
 
@@ -204,7 +217,11 @@ export default function ExchangePage() {
       } else {
         setQuotes(data.quotes || []);
         if (!data.quotes?.length) {
-          setError("No quotes available. Try a different amount, token, or payment method.");
+          setError(
+            isBuy
+              ? "No quotes available. Try a different amount, token, or payment method."
+              : "No sell quotes available. Off-ramp may be limited in sandbox."
+          );
         }
       }
     } catch {
@@ -212,7 +229,7 @@ export default function ExchangePage() {
     } finally {
       setLoadingQuotes(false);
     }
-  }, [amount, countryCode, fiatCurrency, selectedCrypto, selectedPayment, walletAddress]);
+  }, [amount, countryCode, fiatCurrency, selectedCrypto, selectedPayment, walletAddress, isBuy]);
 
   const launchProvider = useCallback(
     async (quote: CryptoQuote) => {
@@ -223,20 +240,29 @@ export default function ExchangePage() {
       setCreatingSession(quote.serviceProvider);
       setError(null);
       try {
+        const sessionData: Record<string, string> = {
+          countryCode,
+          sourceAmount: String(quote.sourceAmount),
+          walletAddress: walletAddress.trim(),
+          serviceProvider: quote.serviceProvider,
+        };
+
+        if (isBuy) {
+          sessionData.sourceCurrencyCode = fiatCurrency;
+          sessionData.destinationCurrencyCode = selectedCrypto;
+        } else {
+          sessionData.sourceCurrencyCode = selectedCrypto;
+          sessionData.destinationCurrencyCode = fiatCurrency;
+        }
+
+        if (quote.paymentMethodType) sessionData.paymentMethodType = quote.paymentMethodType;
+
         const res = await fetch("/api/session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sessionType: "BUY",
-            sessionData: {
-              countryCode,
-              sourceCurrencyCode: fiatCurrency,
-              sourceAmount: String(quote.sourceAmount),
-              destinationCurrencyCode: selectedCrypto,
-              walletAddress: walletAddress.trim(),
-              serviceProvider: quote.serviceProvider,
-              paymentMethodType: quote.paymentMethodType,
-            },
+            sessionType: mode,
+            sessionData,
           }),
         });
         const session = await res.json();
@@ -250,6 +276,7 @@ export default function ExchangePage() {
             amount: quote.sourceAmount,
             fiat: fiatCurrency,
             crypto: selectedCrypto,
+            mode,
             ts: new Date().toISOString(),
           });
           localStorage.setItem("meld_sessions", JSON.stringify(prev.slice(0, 20)));
@@ -263,21 +290,21 @@ export default function ExchangePage() {
         setCreatingSession(null);
       }
     },
-    [countryCode, fiatCurrency, selectedCrypto, walletAddress],
+    [countryCode, fiatCurrency, selectedCrypto, walletAddress, mode, isBuy],
   );
 
   const selectedToken = cryptos.find((c) => c.currencyCode === selectedCrypto);
   const bestQuote = quotes[0] ?? null;
   const worstAmount = quotes.length > 1 ? Math.min(...quotes.map((q) => q.destinationAmount)) : null;
 
-  const fiatEquiv = bestQuote
-    ? `~$${bestQuote.fiatAmountWithoutFees?.toFixed(2) ?? bestQuote.sourceAmountWithoutFees?.toFixed(2) ?? ""}`
+  const receiveAmount = bestQuote ? bestQuote.destinationAmount.toFixed(isBuy ? 8 : 2) : "";
+  const receiveEquiv = bestQuote
+    ? isBuy
+      ? `~$${(bestQuote.sourceAmount - bestQuote.totalFee).toFixed(2)} after fees`
+      : `via ${bestQuote.serviceProvider}`
     : "";
 
-  const receiveAmount = bestQuote ? bestQuote.destinationAmount.toFixed(8) : "";
-  const receiveEquiv = bestQuote
-    ? `~$${(bestQuote.sourceAmount - bestQuote.totalFee).toFixed(2)} after fees`
-    : "";
+  const cryptoLabel = selectedCrypto.split("_")[0];
 
   const buttonLabel = !amount || parseFloat(amount) <= 0
     ? "Enter an amount"
@@ -286,7 +313,7 @@ export default function ExchangePage() {
       : loadingQuotes
         ? "Fetching quotes..."
         : quotes.length > 0
-          ? `Buy ${selectedCrypto.split("_")[0]}`
+          ? `${isBuy ? "Buy" : "Sell"} ${cryptoLabel}`
           : "Get Quotes";
 
   if (loadingInit) {
@@ -313,133 +340,167 @@ export default function ExchangePage() {
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="w-full max-w-[480px] mx-auto px-4 space-y-4"
         >
-          {/* Main Exchange Card */}
           <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-3 shadow-2xl shadow-violet-500/[0.03]">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold">Buy Crypto</h1>
-                <p className="text-[11px] text-muted-foreground">Compare providers instantly</p>
+                <h1 className="text-xl font-bold">
+                  {isBuy ? "Buy Crypto" : "Sell Crypto"}
+                </h1>
+                <p className="text-[11px] text-muted-foreground">
+                  {isBuy ? "Compare providers instantly" : "Convert crypto to fiat"}
+                  {!isBuy && (
+                    <span className="ml-1 text-yellow-500">(quotes only in sandbox)</span>
+                  )}
+                </p>
               </div>
-            <SettingsPopover
-              countries={countries}
-              countryCode={countryCode}
-              onCountryChange={handleCountryChange}
-              fiatCurrencies={fiatCurrencies}
-              fiatCurrency={fiatCurrency}
-              onFiatChange={handleFiatChange}
-              paymentMethods={paymentMethods}
-              selectedPayment={selectedPayment}
-              onPaymentChange={setSelectedPayment}
-            />
-          </div>
-
-          {/* You Pay */}
-          <AmountField
-            label="You pay"
-            amount={amount}
-            onAmountChange={handleAmountChange}
-            fiatEquivalent={amount ? `~$${parseFloat(amount || "0").toFixed(2)}` : ""}
-            tokenCode={fiatCurrency}
-            isFiat
-            error={amountError}
-          />
-
-          <SwapArrow />
-
-          {/* You Receive */}
-          <AmountField
-            label="You receive"
-            amount={loadingQuotes ? "" : receiveAmount}
-            readOnly
-            shimmer={loadingQuotes}
-            fiatEquivalent={receiveEquiv}
-            tokenCode={selectedCrypto}
-            tokenName={selectedToken?.name}
-            tokenIcon={selectedToken?.symbolImageUrl}
-            onTokenClick={() => setTokenSelectorOpen(true)}
-            rightLabel={bestQuote ? `via ${bestQuote.serviceProvider}` : undefined}
-          />
-
-          {/* Wallet */}
-          <div className="rounded-2xl bg-accent/50 dark:bg-white/[0.03] px-4 py-3">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-xs text-muted-foreground font-medium">Wallet address</span>
-              {!walletAddress && (
-                <button
-                  onClick={() => setWalletAddress(getTestWallet(selectedCrypto))}
-                  className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
-                >
-                  Use test address
-                </button>
-              )}
-            </div>
-            <input
-              value={walletAddress}
-              onChange={(e) => setWalletAddress(e.target.value)}
-              placeholder="0x... or bc1..."
-              className="w-full h-9 bg-transparent font-mono text-xs outline-none placeholder:text-muted-foreground/40"
-            />
-          </div>
-
-          {/* Quote Details */}
-          {bestQuote && <QuoteDetails quote={bestQuote} />}
-
-          {/* Error */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-2.5"
-            >
-              {error}
-            </motion.div>
-          )}
-
-          {/* Action Button */}
-          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}>
-            <Button
-              onClick={() => fetchQuotes()}
-              disabled={loadingQuotes || !amount || !selectedCrypto || !!amountError}
-              className="w-full h-[56px] text-base font-bold rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/30 transition-all"
-            >
-              {loadingQuotes ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Fetching quotes...
-                </span>
-              ) : (
-                buttonLabel
-              )}
-            </Button>
-          </motion.div>
-        </div>
-
-        {/* Provider Cards */}
-        {quotes.length > 0 && (
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-sm font-medium">
-                {quotes.length} provider{quotes.length !== 1 ? "s" : ""}
-              </span>
-              <span className="text-[11px] text-muted-foreground">
-                Ranked by rampScore
-              </span>
-            </div>
-
-            {quotes.map((quote, i) => (
-              <ProviderCard
-                key={`${quote.serviceProvider}-${i}`}
-                quote={quote}
-                index={i}
-                isTop={i === 0}
-                worstAmount={worstAmount}
-                onSelect={() => launchProvider(quote)}
-                loading={creatingSession === quote.serviceProvider}
+              <SettingsPopover
+                countries={countries}
+                countryCode={countryCode}
+                onCountryChange={handleCountryChange}
+                fiatCurrencies={fiatCurrencies}
+                fiatCurrency={fiatCurrency}
+                onFiatChange={handleFiatChange}
+                paymentMethods={paymentMethods}
+                selectedPayment={selectedPayment}
+                onPaymentChange={setSelectedPayment}
               />
-            ))}
+            </div>
+
+            {/* Top Field */}
+            {isBuy ? (
+              <AmountField
+                label="You pay"
+                amount={amount}
+                onAmountChange={handleAmountChange}
+                fiatEquivalent={amount ? `~$${parseFloat(amount || "0").toFixed(2)}` : ""}
+                tokenCode={fiatCurrency}
+                isFiat
+                error={amountError}
+              />
+            ) : (
+              <AmountField
+                label="You sell"
+                amount={amount}
+                onAmountChange={handleAmountChange}
+                tokenCode={selectedCrypto}
+                tokenName={selectedToken?.name}
+                tokenIcon={selectedToken?.symbolImageUrl}
+                onTokenClick={() => setTokenSelectorOpen(true)}
+                error={amountError}
+              />
+            )}
+
+            <SwapArrow mode={mode} onClick={handleSwapMode} />
+
+            {/* Bottom Field */}
+            {isBuy ? (
+              <AmountField
+                label="You receive"
+                amount={loadingQuotes ? "" : receiveAmount}
+                readOnly
+                shimmer={loadingQuotes}
+                fiatEquivalent={receiveEquiv}
+                tokenCode={selectedCrypto}
+                tokenName={selectedToken?.name}
+                tokenIcon={selectedToken?.symbolImageUrl}
+                onTokenClick={() => setTokenSelectorOpen(true)}
+                rightLabel={bestQuote ? `via ${bestQuote.serviceProvider}` : undefined}
+              />
+            ) : (
+              <AmountField
+                label="You receive"
+                amount={loadingQuotes ? "" : receiveAmount}
+                readOnly
+                shimmer={loadingQuotes}
+                fiatEquivalent={bestQuote ? `~$${bestQuote.destinationAmount?.toFixed(2)}` : ""}
+                tokenCode={fiatCurrency}
+                isFiat
+                rightLabel={bestQuote ? `via ${bestQuote.serviceProvider}` : undefined}
+              />
+            )}
+
+            {/* Wallet */}
+            <div className="rounded-2xl bg-accent/50 dark:bg-white/[0.03] px-4 py-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs text-muted-foreground font-medium">
+                  {isBuy ? "Receive wallet" : "Source wallet"}
+                </span>
+                {!walletAddress && (
+                  <button
+                    onClick={() => setWalletAddress(getTestWallet(selectedCrypto))}
+                    className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                  >
+                    Use test address
+                  </button>
+                )}
+              </div>
+              <input
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                placeholder="0x... or bc1..."
+                className="w-full h-9 bg-transparent font-mono text-xs outline-none placeholder:text-muted-foreground/40"
+              />
+            </div>
+
+            {bestQuote && <QuoteDetails quote={bestQuote} />}
+
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-2.5"
+              >
+                {error}
+              </motion.div>
+            )}
+
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}>
+              <Button
+                onClick={() => fetchQuotes()}
+                disabled={loadingQuotes || !amount || !selectedCrypto || !!amountError}
+                className={`w-full h-[56px] text-base font-bold rounded-2xl shadow-lg transition-all ${
+                  isBuy
+                    ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-violet-500/20 hover:shadow-violet-500/30"
+                    : "bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-500 hover:to-orange-500 shadow-rose-500/20 hover:shadow-rose-500/30"
+                }`}
+              >
+                {loadingQuotes ? (
+                  <span className="flex items-center gap-2">
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Fetching quotes...
+                  </span>
+                ) : (
+                  buttonLabel
+                )}
+              </Button>
+            </motion.div>
           </div>
-        )}
+
+          {quotes.length > 0 && (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-sm font-medium">
+                  {quotes.length} provider{quotes.length !== 1 ? "s" : ""}
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Ranked by rampScore
+                </span>
+              </div>
+
+              {quotes.map((quote, i) => (
+                <ProviderCard
+                  key={`${quote.serviceProvider}-${i}`}
+                  quote={quote}
+                  index={i}
+                  isTop={i === 0}
+                  worstAmount={worstAmount}
+                  onSelect={() => launchProvider(quote)}
+                  loading={creatingSession === quote.serviceProvider}
+                />
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
 
