@@ -1,20 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { getCryptoIconUrl, getFiatFlag, getProviderColor } from "@/lib/crypto-icons";
+import { TokenSelector } from "@/components/token-selector";
+import { SettingsPopover } from "@/components/settings-popover";
+import { AmountField } from "@/components/amount-field";
+import { SwapArrow } from "@/components/swap-arrow";
+import { QuoteDetails } from "@/components/quote-details";
+import { ProviderCard } from "@/components/provider-card";
 import type {
   MeldCountry,
   FiatCurrency,
@@ -36,6 +32,16 @@ function sortCryptos(list: CryptoCurrency[]): CryptoCurrency[] {
   return [...sandbox, ...rest];
 }
 
+const TEST_WALLETS: Record<string, string> = {
+  BTC: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+  ETH: "0xd72cc3468979360e31bc83b84f0887deccfd81d5",
+  USDC: "0xd72cc3468979360e31bc83b84f0887deccfd81d5",
+};
+
+function getTestWallet(code: string): string {
+  return TEST_WALLETS[code.split("_")[0]] || TEST_WALLETS.ETH;
+}
+
 export default function ExchangePage() {
   const [countries, setCountries] = useState<MeldCountry[]>([]);
   const [countryCode, setCountryCode] = useState("US");
@@ -53,9 +59,9 @@ export default function ExchangePage() {
   const [quotes, setQuotes] = useState<CryptoQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
-  const [loadingCountry, setLoadingCountry] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creatingSession, setCreatingSession] = useState<string | null>(null);
+  const [tokenSelectorOpen, setTokenSelectorOpen] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -82,8 +88,7 @@ export default function ExchangePage() {
           loadPaymentMethods(defCurrency);
         }
 
-        const fiatList = Array.isArray(fiatRes) ? fiatRes : [];
-        setFiatCurrencies(fiatList);
+        setFiatCurrencies(Array.isArray(fiatRes) ? fiatRes : []);
 
         const cryptoList = sortCryptos(Array.isArray(cryptoRes) ? cryptoRes : []);
         setCryptos(cryptoList);
@@ -93,7 +98,7 @@ export default function ExchangePage() {
         }
       } catch (err) {
         console.error("Init error:", err);
-        setError("Failed to load initial data. Check your API key.");
+        setError("Failed to load. Check your API key.");
       } finally {
         setLoadingInit(false);
       }
@@ -112,11 +117,9 @@ export default function ExchangePage() {
     }
   }
 
-  const handleCountryChange = useCallback(async (code: string | null) => {
-    if (!code) return;
+  const handleCountryChange = useCallback(async (code: string) => {
     setCountryCode(code);
     setQuotes([]);
-    setLoadingCountry(true);
     try {
       const [defaultsRes, cryptoRes, fiatRes] = await Promise.all([
         fetch(`/api/countries?defaults=${code}`).then((r) => r.json()),
@@ -138,13 +141,10 @@ export default function ExchangePage() {
       }
     } catch (err) {
       console.error("Country change error:", err);
-    } finally {
-      setLoadingCountry(false);
     }
   }, [selectedCrypto]);
 
-  const handleFiatChange = useCallback((code: string | null) => {
-    if (!code) return;
+  const handleFiatChange = useCallback((code: string) => {
     setFiatCurrency(code);
     setQuotes([]);
     loadPaymentMethods(code);
@@ -156,10 +156,10 @@ export default function ExchangePage() {
     if (!limits || !limits[fiatCurrency]) { setAmountError(null); return true; }
     const lim = limits[fiatCurrency];
     if (num < lim.minAmount) {
-      setAmountError(`Minimum: ${lim.minAmount} ${fiatCurrency}`);
+      setAmountError(`Min: ${lim.minAmount} ${fiatCurrency}`);
       return false;
     } else if (num > lim.maxAmount) {
-      setAmountError(`Maximum: ${lim.maxAmount.toLocaleString()} ${fiatCurrency}`);
+      setAmountError(`Max: ${lim.maxAmount.toLocaleString()} ${fiatCurrency}`);
       return false;
     } else {
       setAmountError(null);
@@ -205,7 +205,7 @@ export default function ExchangePage() {
       } else {
         setQuotes(data.quotes || []);
         if (!data.quotes?.length) {
-          setError("No quotes available for this combination. Try a different amount, token, or payment method.");
+          setError("No quotes available. Try a different amount, token, or payment method.");
         }
       }
     } catch {
@@ -213,7 +213,7 @@ export default function ExchangePage() {
     } finally {
       setLoadingQuotes(false);
     }
-  }, [amount, countryCode, fiatCurrency, selectedCrypto, selectedPayment]);
+  }, [amount, countryCode, fiatCurrency, selectedCrypto, selectedPayment, walletAddress]);
 
   const launchProvider = useCallback(
     async (quote: CryptoQuote) => {
@@ -241,10 +241,7 @@ export default function ExchangePage() {
           }),
         });
         const session = await res.json();
-        if (session.error) {
-          setError(session.error);
-          return;
-        }
+        if (session.error) { setError(session.error); return; }
 
         try {
           const prev = JSON.parse(localStorage.getItem("meld_sessions") || "[]");
@@ -257,12 +254,10 @@ export default function ExchangePage() {
             ts: new Date().toISOString(),
           });
           localStorage.setItem("meld_sessions", JSON.stringify(prev.slice(0, 20)));
-        } catch { /* localStorage unavailable */ }
+        } catch { /* noop */ }
 
         const url = session.serviceProviderWidgetUrl || session.widgetUrl;
-        if (url) {
-          window.open(url, "meld-widget", "width=460,height=720,scrollbars=yes,resizable=yes");
-        }
+        if (url) window.open(url, "meld-widget", "width=460,height=720,scrollbars=yes,resizable=yes");
       } catch {
         setError("Failed to create session");
       } finally {
@@ -272,165 +267,99 @@ export default function ExchangePage() {
     [countryCode, fiatCurrency, selectedCrypto, walletAddress],
   );
 
+  const selectedToken = cryptos.find((c) => c.currencyCode === selectedCrypto);
+  const bestQuote = quotes[0] ?? null;
+  const worstAmount = quotes.length > 1 ? Math.min(...quotes.map((q) => q.destinationAmount)) : null;
+
+  const fiatEquiv = bestQuote
+    ? `~$${bestQuote.fiatAmountWithoutFees?.toFixed(2) ?? bestQuote.sourceAmountWithoutFees?.toFixed(2) ?? ""}`
+    : "";
+
+  const receiveAmount = bestQuote ? bestQuote.destinationAmount.toFixed(8) : "";
+  const receiveEquiv = bestQuote
+    ? `~$${(bestQuote.sourceAmount - bestQuote.totalFee).toFixed(2)} after fees`
+    : "";
+
+  const buttonLabel = !amount || parseFloat(amount) <= 0
+    ? "Enter an amount"
+    : !selectedCrypto
+      ? "Select a token"
+      : loadingQuotes
+        ? "Fetching quotes..."
+        : quotes.length > 0
+          ? `Buy ${selectedCrypto.split("_")[0]}`
+          : "Get Quotes";
+
   if (loadingInit) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16">
-        <Card>
-          <CardContent className="pt-6 space-y-4">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-14 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </CardContent>
-        </Card>
+      <div className="max-w-[440px] mx-auto px-4 py-12">
+        <div className="rounded-3xl bg-[#111118]/80 border border-white/[0.06] p-5 space-y-4">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+        </div>
       </div>
     );
   }
 
-  const worstQuote = quotes.length > 1
-    ? Math.min(...quotes.map((q) => q.destinationAmount))
-    : null;
-
   return (
-    <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold tracking-tight">Buy Crypto</h1>
-        <p className="text-sm text-muted-foreground">
-          Compare real-time prices from multiple providers
-        </p>
-      </div>
-
-      <Card className="border-border/50 relative overflow-hidden">
-        {loadingCountry && (
-          <div className="absolute inset-0 bg-card/80 backdrop-blur-sm z-10 flex items-center justify-center">
-            <span className="w-5 h-5 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
-          </div>
-        )}
-        <CardContent className="pt-6 space-y-5">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Country</label>
-              <Select value={countryCode} onValueChange={(v) => v && handleCountryChange(v)}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {countries.map((c) => (
-                    <SelectItem key={c.countryCode} value={c.countryCode}>
-                      <span className="flex items-center gap-2">
-                        {c.flagImageUrl && (
-                          <img src={c.flagImageUrl} alt="" className="w-4 h-3 object-cover rounded-sm" />
-                        )}
-                        {c.name || c.countryName}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Currency</label>
-              <Select value={fiatCurrency} onValueChange={(v) => v && handleFiatChange(v)}>
-                <SelectTrigger className="h-10">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {fiatCurrencies.map((c) => (
-                    <SelectItem key={c.currencyCode} value={c.currencyCode}>
-                      {getFiatFlag(c.currencyCode)} {c.currencyCode}
-                      {c.name && <span className="text-muted-foreground ml-1">({c.name})</span>}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+        className="max-w-[440px] mx-auto px-4 py-8 space-y-4"
+      >
+        {/* Main Exchange Card */}
+        <div className="rounded-3xl bg-[#111118]/80 backdrop-blur-xl border border-white/[0.06] p-5 space-y-3">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-lg font-semibold">Buy Crypto</h1>
+            <SettingsPopover
+              countries={countries}
+              countryCode={countryCode}
+              onCountryChange={handleCountryChange}
+              fiatCurrencies={fiatCurrencies}
+              fiatCurrency={fiatCurrency}
+              onFiatChange={handleFiatChange}
+              paymentMethods={paymentMethods}
+              selectedPayment={selectedPayment}
+              onPaymentChange={setSelectedPayment}
+            />
           </div>
 
-          {paymentMethods.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Payment method</label>
-              <div className="flex flex-wrap gap-2">
-                {paymentMethods.map((pm) => {
-                  const key = pm.paymentMethod;
-                  const active = selectedPayment === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setSelectedPayment(active ? "" : key)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                        active
-                          ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
-                          : "bg-muted/50 text-muted-foreground border-transparent hover:border-border"
-                      }`}
-                    >
-                      {formatPaymentMethod(key)}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* You Pay */}
+          <AmountField
+            label="You pay"
+            amount={amount}
+            onAmountChange={handleAmountChange}
+            fiatEquivalent={amount ? `~$${parseFloat(amount || "0").toFixed(2)}` : ""}
+            tokenCode={fiatCurrency}
+            isFiat
+            error={amountError}
+          />
 
-          <Separator className="opacity-50" />
+          <SwapArrow />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">You pay</label>
-            <div className="relative">
-              <Input
-                type="number"
-                min="1"
-                value={amount}
-                onChange={(e) => handleAmountChange(e.target.value)}
-                placeholder="100"
-                className={`h-14 text-2xl font-semibold pr-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                  amountError ? "border-destructive" : ""
-                }`}
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                {fiatCurrency}
-              </span>
-            </div>
-            {amountError && (
-              <p className="text-xs text-destructive">{amountError}</p>
-            )}
-          </div>
+          {/* You Receive */}
+          <AmountField
+            label="You receive"
+            amount={loadingQuotes ? "" : receiveAmount}
+            readOnly
+            shimmer={loadingQuotes}
+            fiatEquivalent={receiveEquiv}
+            tokenCode={selectedCrypto}
+            tokenName={selectedToken?.name}
+            tokenIcon={selectedToken?.symbolImageUrl}
+            onTokenClick={() => setTokenSelectorOpen(true)}
+            rightLabel={bestQuote ? `via ${bestQuote.serviceProvider}` : undefined}
+          />
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">You receive</label>
-            <Select value={selectedCrypto} onValueChange={(v) => v && setSelectedCrypto(v)}>
-              <SelectTrigger className="h-12">
-                <SelectValue placeholder="Select token" />
-              </SelectTrigger>
-              <SelectContent>
-                {cryptos.map((c) => {
-                  const isSandbox = SANDBOX_TOKENS.includes(c.currencyCode);
-                  return (
-                    <SelectItem key={c.currencyCode} value={c.currencyCode}>
-                      <span className="flex items-center gap-2">
-                        <img
-                          src={c.symbolImageUrl || getCryptoIconUrl(c.currencyCode)}
-                          alt={c.name}
-                          className="w-5 h-5 rounded-full"
-                        />
-                        <span className="font-medium">{c.name || c.currencyName}</span>
-                        <span className="text-muted-foreground text-xs">{c.chainName || c.networkName}</span>
-                        {isSandbox && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20">
-                            Sandbox
-                          </span>
-                        )}
-                      </span>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-muted-foreground">Wallet address</label>
+          {/* Wallet */}
+          <div className="rounded-2xl bg-white/[0.03] px-4 py-3">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs text-muted-foreground font-medium">Wallet address</span>
               {!walletAddress && (
                 <button
                   onClick={() => setWalletAddress(getTestWallet(selectedCrypto))}
@@ -444,192 +373,77 @@ export default function ExchangePage() {
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
               placeholder="0x... or bc1..."
-              className="h-10 font-mono text-xs"
+              className="h-9 bg-transparent border-0 px-0 font-mono text-xs shadow-none focus-visible:ring-0"
             />
           </div>
 
+          {/* Quote Details */}
+          {bestQuote && <QuoteDetails quote={bestQuote} />}
+
+          {/* Error */}
           {error && (
-            <div className="text-sm text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          <Button
-            onClick={() => fetchQuotes()}
-            disabled={loadingQuotes || !amount || !selectedCrypto || !!amountError}
-            className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
-          >
-            {loadingQuotes ? (
-              <span className="flex items-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Fetching quotes...
-              </span>
-            ) : (
-              "Get Quotes"
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {quotes.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-sm font-semibold">
-              {quotes.length} Provider{quotes.length !== 1 ? "s" : ""} Found
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              Ranked by Meld rampScore
-            </span>
-          </div>
-
-          {quotes.map((quote, i) => (
-            <QuoteCard
-              key={`${quote.serviceProvider}-${i}`}
-              quote={quote}
-              isTop={i === 0}
-              worstAmount={worstQuote}
-              onSelect={() => launchProvider(quote)}
-              loading={creatingSession === quote.serviceProvider}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function QuoteCard({
-  quote,
-  isTop,
-  worstAmount,
-  onSelect,
-  loading,
-}: {
-  quote: CryptoQuote;
-  isTop: boolean;
-  worstAmount: number | null;
-  onSelect: () => void;
-  loading: boolean;
-}) {
-  const providerColor = getProviderColor(quote.serviceProvider);
-
-  const pctBetter =
-    isTop && worstAmount && worstAmount > 0
-      ? (((quote.destinationAmount - worstAmount) / worstAmount) * 100).toFixed(1)
-      : null;
-
-  return (
-    <Card
-      className={`border transition-all hover:border-violet-500/40 ${
-        isTop ? "border-violet-500/30 shadow-lg shadow-violet-500/5" : "border-border/50"
-      }`}
-    >
-      <CardContent className="pt-4 pb-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-              style={{ backgroundColor: providerColor }}
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-sm text-destructive bg-destructive/10 rounded-xl px-4 py-2.5"
             >
-              {quote.serviceProvider.charAt(0)}
-            </div>
-            <div>
-              <div className="font-semibold text-sm flex items-center gap-1.5">
-                {quote.serviceProvider}
-                {isTop && (
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] bg-violet-500/15 text-violet-400 border-violet-500/20"
-                  >
-                    Best Match
-                  </Badge>
-                )}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                <span title="rampScore measures conversion likelihood based on provider reliability, payment method compatibility, and historical success rates for this region">
-                  Score: {quote.rampIntelligence?.rampScore?.toFixed(1) ?? "N/A"}
+              {error}
+            </motion.div>
+          )}
+
+          {/* Action Button */}
+          <motion.div whileTap={{ scale: 0.98 }}>
+            <Button
+              onClick={() => fetchQuotes()}
+              disabled={loadingQuotes || !amount || !selectedCrypto || !!amountError}
+              className="w-full h-[52px] text-base font-semibold rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 transition-all"
+            >
+              {loadingQuotes ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Fetching quotes...
                 </span>
-                {quote.rampIntelligence?.lowKyc && " · Low KYC"}
-                {quote.paymentMethodType && (
-                  <span> · {formatPaymentMethod(quote.paymentMethodType)}</span>
-                )}
-                {pctBetter && parseFloat(pctBetter) > 0 && (
-                  <span className="text-green-400 ml-1">· +{pctBetter}% vs lowest</span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-bold text-base">
-              {quote.destinationAmount?.toFixed(8)}{" "}
-              <span className="text-xs text-muted-foreground">
-                {quote.destinationCurrencyCode}
+              ) : (
+                buttonLabel
+              )}
+            </Button>
+          </motion.div>
+        </div>
+
+        {/* Provider Cards */}
+        {quotes.length > 0 && (
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-sm font-medium">
+                {quotes.length} provider{quotes.length !== 1 ? "s" : ""}
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                Ranked by rampScore
               </span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              1 {quote.destinationCurrencyCode.split("_")[0]} ={" "}
-              {quote.exchangeRate?.toLocaleString()} {quote.sourceCurrencyCode}
-            </div>
+
+            {quotes.map((quote, i) => (
+              <ProviderCard
+                key={`${quote.serviceProvider}-${i}`}
+                quote={quote}
+                index={i}
+                isTop={i === 0}
+                worstAmount={worstAmount}
+                onSelect={() => launchProvider(quote)}
+                loading={creatingSession === quote.serviceProvider}
+              />
+            ))}
           </div>
-        </div>
+        )}
+      </motion.div>
 
-        <div className="grid grid-cols-4 gap-2 text-center text-xs">
-          <FeeCell label="Total Fee" value={quote.totalFee} />
-          <FeeCell label="Network" value={quote.networkFee} />
-          <FeeCell label="Provider" value={quote.transactionFee} />
-          <FeeCell label="Partner" value={quote.partnerFee} />
-        </div>
-
-        <Button
-          onClick={onSelect}
-          disabled={loading}
-          variant="outline"
-          className="w-full h-9 text-sm hover:bg-violet-500/10 hover:text-violet-400 hover:border-violet-500/30"
-        >
-          {loading ? (
-            <span className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
-              Opening...
-            </span>
-          ) : (
-            `Buy with ${quote.serviceProvider}`
-          )}
-        </Button>
-      </CardContent>
-    </Card>
+      <TokenSelector
+        open={tokenSelectorOpen}
+        onOpenChange={setTokenSelectorOpen}
+        tokens={cryptos}
+        selected={selectedCrypto}
+        onSelect={setSelectedCrypto}
+      />
+    </>
   );
-}
-
-function FeeCell({ label, value }: { label: string; value: number | null | undefined }) {
-  return (
-    <div className="bg-muted/50 rounded-md px-2 py-1.5">
-      <div className="text-muted-foreground">{label}</div>
-      <div className="font-medium">{value != null ? `$${value.toFixed(2)}` : "—"}</div>
-    </div>
-  );
-}
-
-const PAYMENT_LABELS: Record<string, string> = {
-  CREDIT_DEBIT_CARD: "Card",
-  APPLE_PAY: "Apple Pay",
-  GOOGLE_PAY: "Google Pay",
-  SEPA: "SEPA",
-  PIX: "PIX",
-  ACH: "ACH",
-  BANK_TRANSFER: "Bank Transfer",
-};
-
-function formatPaymentMethod(key: string): string {
-  return PAYMENT_LABELS[key] || key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-const TEST_WALLETS: Record<string, string> = {
-  BTC: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-  ETH: "0xd72cc3468979360e31bc83b84f0887deccfd81d5",
-  USDC: "0xd72cc3468979360e31bc83b84f0887deccfd81d5",
-};
-
-function getTestWallet(cryptoCode: string): string {
-  const base = cryptoCode.split("_")[0];
-  return TEST_WALLETS[base] || TEST_WALLETS.ETH;
 }
