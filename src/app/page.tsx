@@ -363,13 +363,13 @@ export default function ExchangePage() {
 
   if (loadingInit) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-full max-w-[480px] mx-auto px-4">
-          <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-28 w-full rounded-2xl" />
-            <Skeleton className="h-28 w-full rounded-2xl" />
-            <Skeleton className="h-14 w-full rounded-2xl" />
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+        <div className="w-full max-w-[520px] mx-auto px-4">
+          <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-8 space-y-5">
+            <Skeleton className="h-7 w-40" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
           </div>
         </div>
       </div>
@@ -378,22 +378,21 @@ export default function ExchangePage() {
 
   return (
     <>
-      <div className="flex items-start justify-center min-h-[calc(100vh-8rem)] pt-8 pb-12">
+      <div className="flex items-center justify-center min-h-[calc(100vh-8rem)] py-8">
         <motion.div
-          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          initial={{ opacity: 0, y: 30, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="flex w-full max-w-[480px] flex-col gap-4 px-4 xl:max-w-[1100px] xl:grid xl:grid-cols-[minmax(0,480px)_minmax(0,1fr)] xl:items-start xl:gap-8"
+          transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="w-full max-w-[520px] mx-auto px-4 space-y-5"
         >
-          <div className="min-w-0 space-y-4">
-            <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-3 shadow-2xl shadow-violet-500/[0.03]">
+          <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-7 space-y-4 shadow-2xl shadow-violet-500/[0.05]">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-bold">
+                <h1 className="text-2xl font-bold tracking-tight">
                   {isBuy ? "Buy Crypto" : "Sell Crypto"}
                 </h1>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {isBuy ? "Compare providers instantly" : "Convert crypto to fiat"}
                   {!isBuy && (
                     <span className="ml-1 text-yellow-500">(quotes only in sandbox)</span>
@@ -529,20 +528,19 @@ export default function ExchangePage() {
                 )}
               </Button>
             </motion.div>
-            </div>
-
-            {quotesUpdatedAt !== null && (
-              <QuoteFreshness
-                updatedAt={quotesUpdatedAt}
-                loading={loadingQuotes}
-                hasQuotes={quotes.length > 0}
-                onRefresh={() => fetchQuotes()}
-              />
-            )}
           </div>
 
+          {quotesUpdatedAt !== null && (
+            <QuoteFreshness
+              updatedAt={quotesUpdatedAt}
+              loading={loadingQuotes}
+              hasQuotes={quotes.length > 0}
+              onRefresh={() => fetchQuotes()}
+            />
+          )}
+
           {quotes.length > 0 && (
-            <div className="min-w-0 space-y-2.5 xl:pt-1">
+            <div className="space-y-3">
               {quoteSpreadPct != null && (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2.5 text-[11px] leading-snug text-emerald-700 dark:text-emerald-400/90">
                   Up to{" "}
