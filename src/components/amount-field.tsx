@@ -1,7 +1,6 @@
 "use client";
 
 import { getCryptoIconUrl, getFiatFlag } from "@/lib/crypto-icons";
-import type { CryptoCurrency } from "@/lib/types";
 
 interface AmountFieldProps {
   label: string;
@@ -27,7 +26,6 @@ export function AmountField({
   readOnly = false,
   fiatEquivalent,
   tokenCode,
-  tokenName,
   tokenIcon,
   isFiat = false,
   fiatCurrency,
@@ -36,15 +34,14 @@ export function AmountField({
   error,
   shimmer = false,
 }: AmountFieldProps) {
-  const icon = isFiat
-    ? null
-    : tokenIcon || getCryptoIconUrl(tokenCode);
-
+  const icon = isFiat ? null : tokenIcon || getCryptoIconUrl(tokenCode);
   const displayCode = tokenCode.split("_")[0];
 
   return (
-    <div className={`rounded-2xl p-4 transition-colors ${
-      error ? "bg-red-500/5 ring-1 ring-red-500/20" : "bg-white/[0.03] hover:bg-white/[0.05]"
+    <div className={`rounded-2xl p-4 transition-all duration-200 ${
+      error
+        ? "bg-red-500/5 dark:bg-red-500/5 ring-1 ring-red-500/20"
+        : "bg-accent/50 dark:bg-white/[0.03] hover:bg-accent/70 dark:hover:bg-white/[0.05]"
     }`}>
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-muted-foreground font-medium">{label}</span>
@@ -77,7 +74,7 @@ export function AmountField({
 
         <button
           onClick={onTokenClick}
-          className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.08] hover:border-white/[0.15] transition-all shrink-0"
+          className="flex items-center gap-2 px-3 py-2 rounded-full bg-secondary hover:bg-secondary/80 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] border border-border/50 dark:border-white/[0.08] hover:border-border dark:hover:border-white/[0.15] transition-all shrink-0 hover:shadow-md"
         >
           {isFiat ? (
             <span className="text-lg leading-none">{getFiatFlag(tokenCode)}</span>

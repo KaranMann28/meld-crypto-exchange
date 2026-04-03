@@ -4,7 +4,7 @@ A full-stack crypto on-ramp integration built with **Next.js 16**, **TypeScript*
 
 Meld's core value is **aggregation over a single provider**. A team integrating MoonPay gets one provider with one set of countries, fees, and payment methods. Integrating Transak gets another set. Integrating both doubles the work and requires custom routing logic. Meld solves this: one API, 50+ providers, 180+ countries, 150+ fiat currencies, 54 local payment methods. The `rampScore` algorithm ranks quotes not just by price, but by conversion likelihood — factoring in regional success rates, payment method compatibility, and real-time provider health. This integration demonstrates that pattern end-to-end.
 
-**Live Demo:** _[Deployed on Vercel — link TBD]_
+**Live Demo:** [meld-crypto-exchange.vercel.app](https://meld-crypto-exchange.vercel.app)
 
 ---
 

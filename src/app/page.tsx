@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TokenSelector } from "@/components/token-selector";
 import { SettingsPopover } from "@/components/settings-popover";
@@ -292,12 +291,14 @@ export default function ExchangePage() {
 
   if (loadingInit) {
     return (
-      <div className="max-w-[440px] mx-auto px-4 py-12">
-        <div className="rounded-3xl bg-[#111118]/80 border border-white/[0.06] p-5 space-y-4">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-24 w-full rounded-2xl" />
-          <Skeleton className="h-12 w-full rounded-xl" />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-full max-w-[480px] mx-auto px-4">
+          <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-4">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-28 w-full rounded-2xl" />
+            <Skeleton className="h-14 w-full rounded-2xl" />
+          </div>
         </div>
       </div>
     );
@@ -305,17 +306,21 @@ export default function ExchangePage() {
 
   return (
     <>
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-        className="max-w-[440px] mx-auto px-4 py-8 space-y-4"
-      >
-        {/* Main Exchange Card */}
-        <div className="rounded-3xl bg-[#111118]/80 backdrop-blur-xl border border-white/[0.06] p-5 space-y-3">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-semibold">Buy Crypto</h1>
+      <div className="flex items-start justify-center min-h-[calc(100vh-8rem)] pt-8 pb-12">
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+          className="w-full max-w-[480px] mx-auto px-4 space-y-4"
+        >
+          {/* Main Exchange Card */}
+          <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-3 shadow-2xl shadow-violet-500/[0.03]">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold">Buy Crypto</h1>
+                <p className="text-[11px] text-muted-foreground">Compare providers instantly</p>
+              </div>
             <SettingsPopover
               countries={countries}
               countryCode={countryCode}
@@ -357,7 +362,7 @@ export default function ExchangePage() {
           />
 
           {/* Wallet */}
-          <div className="rounded-2xl bg-white/[0.03] px-4 py-3">
+          <div className="rounded-2xl bg-accent/50 dark:bg-white/[0.03] px-4 py-3">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs text-muted-foreground font-medium">Wallet address</span>
               {!walletAddress && (
@@ -369,11 +374,11 @@ export default function ExchangePage() {
                 </button>
               )}
             </div>
-            <Input
+            <input
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
               placeholder="0x... or bc1..."
-              className="h-9 bg-transparent border-0 px-0 font-mono text-xs shadow-none focus-visible:ring-0"
+              className="w-full h-9 bg-transparent font-mono text-xs outline-none placeholder:text-muted-foreground/40"
             />
           </div>
 
@@ -392,11 +397,11 @@ export default function ExchangePage() {
           )}
 
           {/* Action Button */}
-          <motion.div whileTap={{ scale: 0.98 }}>
+          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}>
             <Button
               onClick={() => fetchQuotes()}
               disabled={loadingQuotes || !amount || !selectedCrypto || !!amountError}
-              className="w-full h-[52px] text-base font-semibold rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 transition-all"
+              className="w-full h-[56px] text-base font-bold rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-lg shadow-violet-500/20 hover:shadow-xl hover:shadow-violet-500/30 transition-all"
             >
               {loadingQuotes ? (
                 <span className="flex items-center gap-2">
@@ -435,7 +440,8 @@ export default function ExchangePage() {
             ))}
           </div>
         )}
-      </motion.div>
+        </motion.div>
+      </div>
 
       <TokenSelector
         open={tokenSelectorOpen}

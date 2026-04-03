@@ -50,7 +50,7 @@ export function ProviderCard({
         className={`rounded-2xl border p-4 transition-all hover:translate-y-[-1px] hover:shadow-lg ${
           isTop
             ? "border-violet-500/30 bg-violet-500/[0.04] shadow-md shadow-violet-500/5"
-            : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"
+            : "border-border/50 bg-card/60 hover:border-border"
         }`}
       >
         <div className="flex items-center justify-between mb-3">
@@ -102,8 +102,8 @@ export function ProviderCard({
           variant="outline"
           className={`w-full h-9 text-sm rounded-xl transition-all ${
             isTop
-              ? "bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20"
-              : "hover:bg-white/5 border-white/[0.08]"
+              ? "bg-violet-500/10 border-violet-500/30 text-violet-400 hover:bg-violet-500/20"
+              : "hover:bg-accent border-border/50"
           }`}
         >
           {loading ? (
