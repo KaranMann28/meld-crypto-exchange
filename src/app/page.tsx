@@ -10,6 +10,8 @@ import { AmountField } from "@/components/amount-field";
 import { SwapArrow } from "@/components/swap-arrow";
 import { QuoteDetails } from "@/components/quote-details";
 import { ProviderCard } from "@/components/provider-card";
+import { QuoteFreshness } from "@/components/quote-freshness";
+import { AmountPresets } from "@/components/amount-presets";
 import type {
   MeldCountry,
   FiatCurrency,
@@ -62,6 +64,7 @@ export default function ExchangePage() {
   const [error, setError] = useState<string | null>(null);
   const [creatingSession, setCreatingSession] = useState<string | null>(null);
   const [tokenSelectorOpen, setTokenSelectorOpen] = useState(false);
+  const [quotesUpdatedAt, setQuotesUpdatedAt] = useState<number | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -122,6 +125,7 @@ export default function ExchangePage() {
   function handleSwapMode() {
     setMode((prev) => (prev === "BUY" ? "SELL" : "BUY"));
     setQuotes([]);
+    setQuotesUpdatedAt(null);
     setError(null);
     setAmount("100");
     setAmountError(null);
@@ -130,6 +134,7 @@ export default function ExchangePage() {
   const handleCountryChange = useCallback(async (code: string) => {
     setCountryCode(code);
     setQuotes([]);
+    setQuotesUpdatedAt(null);
     try {
       const [defaultsRes, cryptoRes, fiatRes] = await Promise.all([
         fetch(`/api/countries?defaults=${code}`).then((r) => r.json()),
@@ -157,7 +162,14 @@ export default function ExchangePage() {
   const handleFiatChange = useCallback((code: string) => {
     setFiatCurrency(code);
     setQuotes([]);
+    setQuotesUpdatedAt(null);
     loadPaymentMethods(code);
+  }, []);
+
+  const handlePaymentChange = useCallback((key: string) => {
+    setSelectedPayment(key);
+    setQuotes([]);
+    setQuotesUpdatedAt(null);
   }, []);
 
   function validateAmount(val: string): boolean {
@@ -181,6 +193,16 @@ export default function ExchangePage() {
         fetchQuotes(val);
       }
     }, 800);
+  }
+
+  function applyPresetAmount(amt: number) {
+    const val = String(amt);
+    setAmount(val);
+    if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+    const ok = validateAmount(val);
+    if (ok && selectedCrypto && parseFloat(val) > 0) {
+      void fetchQuotes(val);
+    }
   }
 
   const fetchQuotes = useCallback(async (overrideAmount?: string | undefined) => {
@@ -228,8 +250,17 @@ export default function ExchangePage() {
       setError("Failed to fetch quotes");
     } finally {
       setLoadingQuotes(false);
+      setQuotesUpdatedAt(Date.now());
     }
   }, [amount, countryCode, fiatCurrency, selectedCrypto, selectedPayment, walletAddress, isBuy]);
+
+  useEffect(() => {
+    if (quotes.length === 0 || quotesUpdatedAt === null) return;
+    const t = setTimeout(() => {
+      void fetchQuotes();
+    }, 30_000);
+    return () => clearTimeout(t);
+  }, [quotes.length, quotesUpdatedAt, fetchQuotes]);
 
   const launchProvider = useCallback(
     async (quote: CryptoQuote) => {
@@ -306,6 +337,20 @@ export default function ExchangePage() {
 
   const cryptoLabel = selectedCrypto.split("_")[0];
 
+  const quoteSpreadPct =
+    quotes.length > 1
+      ? (() => {
+          const amounts = quotes.map((q) => q.destinationAmount);
+          const minD = Math.min(...amounts);
+          const maxD = Math.max(...amounts);
+          if (minD <= 0) return null;
+          const p = ((maxD - minD) / minD) * 100;
+          return p > 0.05 ? p : null;
+        })()
+      : null;
+
+  const receiveUnitLabel = isBuy ? cryptoLabel : fiatCurrency;
+
   const buttonLabel = !amount || parseFloat(amount) <= 0
     ? "Enter an amount"
     : !selectedCrypto
@@ -338,9 +383,10 @@ export default function ExchangePage() {
           initial={{ opacity: 0, y: 24, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="w-full max-w-[480px] mx-auto px-4 space-y-4"
+          className="flex w-full max-w-[480px] flex-col gap-4 px-4 xl:max-w-[1100px] xl:grid xl:grid-cols-[minmax(0,480px)_minmax(0,1fr)] xl:items-start xl:gap-8"
         >
-          <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-3 shadow-2xl shadow-violet-500/[0.03]">
+          <div className="min-w-0 space-y-4">
+            <div className="rounded-3xl bg-card/80 backdrop-blur-xl border border-border/30 p-6 space-y-3 shadow-2xl shadow-violet-500/[0.03]">
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
@@ -363,21 +409,29 @@ export default function ExchangePage() {
                 onFiatChange={handleFiatChange}
                 paymentMethods={paymentMethods}
                 selectedPayment={selectedPayment}
-                onPaymentChange={setSelectedPayment}
+                onPaymentChange={handlePaymentChange}
               />
             </div>
 
             {/* Top Field */}
             {isBuy ? (
-              <AmountField
-                label="You pay"
-                amount={amount}
-                onAmountChange={handleAmountChange}
-                fiatEquivalent={amount ? `~$${parseFloat(amount || "0").toFixed(2)}` : ""}
-                tokenCode={fiatCurrency}
-                isFiat
-                error={amountError}
-              />
+              <>
+                <AmountField
+                  label="You pay"
+                  amount={amount}
+                  onAmountChange={handleAmountChange}
+                  fiatEquivalent={amount ? `~$${parseFloat(amount || "0").toFixed(2)}` : ""}
+                  tokenCode={fiatCurrency}
+                  isFiat
+                  error={amountError}
+                />
+                <AmountPresets
+                  fiatCurrency={fiatCurrency}
+                  limits={limits}
+                  disabled={loadingQuotes || !selectedCrypto}
+                  onSelect={applyPresetAmount}
+                />
+              </>
             ) : (
               <AmountField
                 label="You sell"
@@ -475,10 +529,29 @@ export default function ExchangePage() {
                 )}
               </Button>
             </motion.div>
+            </div>
+
+            {quotesUpdatedAt !== null && (
+              <QuoteFreshness
+                updatedAt={quotesUpdatedAt}
+                loading={loadingQuotes}
+                hasQuotes={quotes.length > 0}
+                onRefresh={() => fetchQuotes()}
+              />
+            )}
           </div>
 
           {quotes.length > 0 && (
-            <div className="space-y-2.5">
+            <div className="min-w-0 space-y-2.5 xl:pt-1">
+              {quoteSpreadPct != null && (
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.06] px-3 py-2.5 text-[11px] leading-snug text-emerald-700 dark:text-emerald-400/90">
+                  Up to{" "}
+                  <span className="font-semibold tabular-nums">
+                    {quoteSpreadPct.toFixed(1)}% more {receiveUnitLabel}
+                  </span>{" "}
+                  from the best vs weakest quote by amount (cards stay ranked by rampScore).
+                </div>
+              )}
               <div className="flex items-center justify-between px-1">
                 <span className="text-sm font-medium">
                   {quotes.length} provider{quotes.length !== 1 ? "s" : ""}
@@ -509,7 +582,11 @@ export default function ExchangePage() {
         onOpenChange={setTokenSelectorOpen}
         tokens={cryptos}
         selected={selectedCrypto}
-        onSelect={setSelectedCrypto}
+        onSelect={(code) => {
+          setSelectedCrypto(code);
+          setQuotes([]);
+          setQuotesUpdatedAt(null);
+        }}
       />
     </>
   );

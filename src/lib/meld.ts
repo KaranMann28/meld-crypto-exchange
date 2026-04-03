@@ -41,16 +41,19 @@ const cache = new Map<string, { data: unknown; ts: number }>();
 
 function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.ts < CACHE_TTL) return Promise.resolve(hit.data as T);
+  if (hit && Date.now() - hit.ts < CACHE_TTL)
+    return Promise.resolve(hit.data as T);
   return fn().then((data) => {
     cache.set(key, { data, ts: Date.now() });
     return data;
   });
 }
 
+// --- HTTP client with retry for 5xx ---
 async function meldFetch<T>(
   path: string,
   options: RequestInit = {},
+  retries = 0,
 ): Promise<T> {
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
@@ -65,11 +68,19 @@ async function meldFetch<T>(
 
   if (!res.ok) {
     const body = await res.text().catch(() => "Unknown error");
+
+    if (res.status >= 500 && retries < 1) {
+      await new Promise((r) => setTimeout(r, 1000));
+      return meldFetch<T>(path, options, retries + 1);
+    }
+
     throw new MeldAPIError(res.status, path, body);
   }
 
   return res.json();
 }
+
+// --- Cached static endpoints ---
 
 export async function getCountries(): Promise<MeldCountry[]> {
   return cached("countries", () =>
@@ -123,14 +134,30 @@ export async function getPaymentMethods(
 export async function getPurchaseLimits(): Promise<
   Record<string, { minAmount: number; maxAmount: number }>
 > {
-  return cached("limits", () =>
+  return cached("limits:buy", () =>
     meldFetch(
       "/service-providers/limits/fiat-currency-purchases?accountFilter=true",
     ),
   );
 }
 
-// --- Real-time calls (never cached) ---
+export interface CryptoSellLimit {
+  currencyCode: string;
+  chainCode: string;
+  minimumAmount: number;
+  maximumAmount: number;
+  defaultAmount?: number;
+}
+
+export async function getSellLimits(): Promise<CryptoSellLimit[]> {
+  return cached("limits:sell", () =>
+    meldFetch<CryptoSellLimit[]>(
+      "/service-providers/limits/crypto-currency-sells?accountFilter=true",
+    ),
+  );
+}
+
+// --- Real-time calls (never cached, retry on 5xx) ---
 
 export async function getCryptoQuote(
   request: QuoteRequest,
