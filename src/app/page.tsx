@@ -146,26 +146,29 @@ export default function ExchangePage() {
     loadPaymentMethods(code);
   }, []);
 
-  function validateAmount(val: string) {
+  function validateAmount(val: string): boolean {
     const num = parseFloat(val);
-    if (!val || isNaN(num)) { setAmountError(null); return; }
-    if (!limits || !limits[fiatCurrency]) { setAmountError(null); return; }
+    if (!val || isNaN(num)) { setAmountError(null); return true; }
+    if (!limits || !limits[fiatCurrency]) { setAmountError(null); return true; }
     const lim = limits[fiatCurrency];
     if (num < lim.minAmount) {
       setAmountError(`Minimum: ${lim.minAmount} ${fiatCurrency}`);
+      return false;
     } else if (num > lim.maxAmount) {
       setAmountError(`Maximum: ${lim.maxAmount.toLocaleString()} ${fiatCurrency}`);
+      return false;
     } else {
       setAmountError(null);
+      return true;
     }
   }
 
   function handleAmountChange(val: string) {
     setAmount(val);
-    validateAmount(val);
+    const isValid = validateAmount(val);
     if (debounceRef.current !== null) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      if (val && parseFloat(val) > 0 && selectedCrypto && !amountError) {
+      if (val && parseFloat(val) > 0 && selectedCrypto && isValid) {
         fetchQuotes(val);
       }
     }, 800);
@@ -326,6 +329,7 @@ export default function ExchangePage() {
                   {fiatCurrencies.map((c) => (
                     <SelectItem key={c.currencyCode} value={c.currencyCode}>
                       {getFiatFlag(c.currencyCode)} {c.currencyCode}
+                      {c.name && <span className="text-muted-foreground ml-1">({c.name})</span>}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -415,7 +419,17 @@ export default function ExchangePage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Wallet address</label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-muted-foreground">Wallet address</label>
+              {!walletAddress && (
+                <button
+                  onClick={() => setWalletAddress(getTestWallet(selectedCrypto))}
+                  className="text-[10px] text-violet-400 hover:text-violet-300 transition-colors"
+                >
+                  Use test address
+                </button>
+              )}
+            </div>
             <Input
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
@@ -592,4 +606,15 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 function formatPaymentMethod(key: string): string {
   return PAYMENT_LABELS[key] || key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const TEST_WALLETS: Record<string, string> = {
+  BTC: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+  ETH: "0xd72cc3468979360e31bc83b84f0887deccfd81d5",
+  USDC: "0xd72cc3468979360e31bc83b84f0887deccfd81d5",
+};
+
+function getTestWallet(cryptoCode: string): string {
+  const base = cryptoCode.split("_")[0];
+  return TEST_WALLETS[base] || TEST_WALLETS.ETH;
 }

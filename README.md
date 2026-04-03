@@ -2,6 +2,8 @@
 
 A full-stack crypto on-ramp integration built with **Next.js 16**, **TypeScript**, and **Meld's White-Label API**. Users can compare real-time quotes from multiple crypto providers, select the best rate, and complete a purchase — all through a single interface.
 
+Meld's core value is **aggregation over a single provider**. Instead of integrating Transak, Moonpay, or Stripe individually (each with different coverage, pricing, and KYC flows), Meld routes through 50+ providers via one API and uses its `rampScore` algorithm to rank quotes by conversion likelihood — not just price. This integration demonstrates that pattern end-to-end.
+
 **Live Demo:** _[Deployed on Vercel — link TBD]_
 
 ---
@@ -68,7 +70,13 @@ cd meld-crypto-exchange
 npm install
 ```
 
-Create `.env.local`:
+Copy the environment template:
+
+```bash
+cp .env.example .env.local
+```
+
+Then edit `.env.local` with your key:
 
 ```env
 MELD_API_KEY=your_meld_sandbox_api_key
@@ -85,14 +93,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Verify API connection:
+
+```bash
+curl http://localhost:3000/api/health
+# {"status":"ok","environment":"sandbox","countriesLoaded":150,...}
+```
+
 ### Test a Purchase
 
 1. Select country (US) and token (BTC — marked "Sandbox")
 2. Enter amount (e.g., $100) — validates against min/max limits
 3. Click **Get Quotes** — see quotes ranked by rampScore with fee breakdown
-4. Enter a test wallet address (`0xd72cc3468979360e31bc83b84f0887deccfd81d5` for ETH)
+4. Click **"Use test address"** next to the wallet field (auto-fills a sandbox-safe address)
 5. Click **Buy with [Provider]** — provider widget opens in popup
-6. Use test card `4111 1111 1111 1111`, expiry `10/33`, CVV `123`
+6. Complete KYC in the provider widget (use any fake info for sandbox)
+7. Use a test card to complete payment:
+
+| Provider | Card Number | Expiry | CVV | Notes |
+|----------|------------|--------|-----|-------|
+| Transak | `4111 1111 1111 1111` | `10/33` | `123` | US SSN: `000000001` |
+| Unlimit | `4000 0000 0000 0085` | `10/30` | `123` | Visa test card |
+| Banxa | `4111 1111 1111 1111` | `01/30` | `555` | OTP: `7203` |
+| Topper | `4921 8178 4444 5119` | Any future | Any 3 | — |
 
 ---
 
