@@ -41,19 +41,22 @@ This app implements Meld's complete 7-step White-Label API flow:
 ┌──────────────────────────────────────────────────────┐
 │                    Next.js App                        │
 ├──────────────────┬───────────────────────────────────┤
-│   Frontend       │   Backend (API Routes)             │
+│   Frontend       │   Backend (8 API Routes)           │
 │                  │                                    │
-│   /              │   /api/countries    GET             │
-│   (Exchange UI)  │   /api/currencies   GET             │
-│                  │   /api/quote        POST            │
-│   /transactions  │   /api/session      POST            │
-│   (TX Tracker)   │   /api/transaction/[id]  GET        │
-│                  │   /api/webhook      POST            │
+│   /              │   /api/countries      GET           │
+│   (Exchange UI)  │   /api/currencies     GET           │
+│   Buy + Sell     │   /api/quote          POST          │
+│                  │   /api/session         POST          │
+│   /transactions  │   /api/transaction/[id] GET          │
+│   (TX Tracker)   │   /api/transactions    GET           │
+│                  │   /api/webhook         POST          │
+│                  │   /api/health          GET           │
 ├──────────────────┴───────────────────────────────────┤
-│   /lib/meld.ts — API client w/ TTL cache + error map  │
+│   /lib/meld.ts — API client, TTL cache, retry, errors │
+│   /lib/logger.ts — Structured request logging          │
+│   /lib/transaction-store.ts — In-memory TX + webhooks  │
 │   /lib/types.ts — TypeScript interfaces                │
-│   /lib/transaction-store.ts — In-memory TX cache       │
-│   /lib/crypto-icons.ts — Token icon + provider helpers │
+│   /lib/crypto-icons.ts — Token/provider/payment icons  │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -67,6 +70,10 @@ This app implements Meld's complete 7-step White-Label API flow:
 - **Specific error messages.** HTTP 401, 403, 429, and 5xx from Meld are mapped to human-readable messages rather than generic "something went wrong."
 - **API versioning.** Every request includes the `Meld-Version: 2026-02-03` header. Meld's docs note that non-breaking changes (new fields) ship without versioning, while breaking changes are versioned. The API client uses flexible parsing to handle unexpected fields gracefully.
 - **Wallet address forwarded to quote request.** When available, the user's wallet is included in the quote for more accurate pricing from providers that factor it in.
+- **Retry on 5xx.** `meldFetch` retries once with a 1-second delay on server errors before failing — production-grade resilience without complexity.
+- **Structured logging.** Every API route logs `[timestamp][LEVEL][route] method status latencyMs — detail` via `src/lib/logger.ts` for consistent observability.
+- **Session validation.** The `/api/session` route validates all 7 required fields and returns specific missing field names — not cryptic Meld errors.
+- **Webhook security placeholder.** `verifyWebhookSignature()` is scaffolded with a reference to [Meld's webhook auth docs](https://docs.meld.io/docs/webhooks-authentication) for production HMAC verification.
 
 ---
 
@@ -139,7 +146,7 @@ curl http://localhost:3000/api/health
 - **Sandbox only.** All calls target `api-sb.meld.io`. Sandbox supports BTC, ETH, USDC; other tokens are available via the API but may not have working providers.
 - **In-memory transaction store.** Webhook events are stored in-process for demo purposes. Production would use a database.
 - **No user auth.** This is a demo integration; a real product would have accounts, session management, and KYC state tracking.
-- **Buy flow only.** Sell is quote-only in sandbox; transfer is config-only.
+- **Buy + Sell flows.** Buy (on-ramp) is fully testable end-to-end in sandbox. Sell (off-ramp) returns real quotes but full transactions require production. The UI supports both via the swap arrow toggle.
 
 ---
 
@@ -172,7 +179,7 @@ The auto-quote debounce initially checked `amountError` inside the `setTimeout` 
 
 1. **Persistent transaction store** — Vercel KV or Postgres for durable webhook event storage across deployments
 2. **WebSocket push** — Stream transaction status changes to the frontend in real-time instead of manual lookup
-3. **Sell flow (off-ramp)** — Add crypto-to-fiat conversion once sandbox supports full off-ramp transactions
+3. **Full sell flow (off-ramp)** — Sell quotes are implemented; complete off-ramp transactions once sandbox supports them
 4. **Transfer flow** — Support exchange-to-wallet transfers using Meld's transfer API
 5. **Quote auto-refresh timer** — Visual countdown + auto-refetch every 30s since crypto prices are volatile
 6. **Webhook signature verification** — Validate incoming webhook authenticity using [Meld's HMAC signing](https://docs.meld.io/docs/webhooks-authentication)

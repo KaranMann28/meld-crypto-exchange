@@ -9,8 +9,8 @@ export async function GET() {
     const resp = {
       status: "ok",
       environment: "sandbox",
-      apiBase: process.env.MELD_API_BASE_URL || "https://api-sb.meld.io",
-      apiVersion: process.env.MELD_API_VERSION || "2026-02-03",
+      apiBase: (process.env.MELD_API_BASE_URL || "https://api-sb.meld.io").trim(),
+      apiVersion: (process.env.MELD_API_VERSION || "2026-02-03").trim(),
       countriesLoaded: countries.length,
       latencyMs: Date.now() - start,
     };
