@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getCryptoIconUrl } from "@/lib/crypto-icons";
 import type { CryptoCurrency } from "@/lib/types";
@@ -40,17 +39,23 @@ export function TokenSelector({
   const sandbox = filtered.filter((t) => SANDBOX_TOKENS.includes(t.currencyCode));
   const rest = filtered.filter((t) => !SANDBOX_TOKENS.includes(t.currencyCode));
 
+  function pick(code: string) {
+    onSelect(code);
+    onOpenChange(false);
+    setSearch("");
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden bg-[#111118] border-border/30">
+      <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden bg-card border-border/30 rounded-2xl">
         <div className="p-4 pb-2 space-y-3">
-          <DialogTitle className="text-base font-semibold">Select token</DialogTitle>
-          <Input
+          <DialogTitle className="text-base font-bold">Select Token</DialogTitle>
+          <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or symbol..."
-            className="h-10 bg-white/5 border-white/10 text-sm"
             autoFocus
+            className="w-full h-10 px-3 rounded-xl bg-accent dark:bg-white/[0.05] border border-border/50 text-sm outline-none focus:ring-1 focus:ring-violet-500/50 placeholder:text-muted-foreground/50"
           />
 
           {!search && (
@@ -62,11 +67,11 @@ export function TokenSelector({
                 return (
                   <button
                     key={code}
-                    onClick={() => { onSelect(code); onOpenChange(false); setSearch(""); }}
+                    onClick={() => pick(code)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                       isSelected
-                        ? "bg-violet-500/20 border-violet-500/40 text-violet-300"
-                        : "bg-white/5 border-white/10 text-muted-foreground hover:border-white/20"
+                        ? "bg-violet-500/20 border-violet-500/40 text-violet-400 dark:text-violet-300"
+                        : "bg-accent dark:bg-white/[0.05] border-border/50 dark:border-white/10 text-muted-foreground hover:border-border dark:hover:border-white/20"
                     }`}
                   >
                     <img
@@ -82,11 +87,11 @@ export function TokenSelector({
           )}
         </div>
 
-        <ScrollArea className="h-[320px]">
+        <ScrollArea className="h-[340px]">
           <div className="px-2 pb-2">
             {sandbox.length > 0 && !search && (
-              <div className="px-2 pt-1 pb-1">
-                <span className="text-[10px] font-medium text-green-400/80 uppercase tracking-wider">
+              <div className="px-3 pt-1 pb-1.5">
+                <span className="text-[10px] font-semibold text-green-500 dark:text-green-400/80 uppercase tracking-wider">
                   Sandbox Supported
                 </span>
               </div>
@@ -98,25 +103,21 @@ export function TokenSelector({
               return (
                 <button
                   key={token.currencyCode}
-                  onClick={() => { onSelect(token.currencyCode); onOpenChange(false); setSearch(""); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
-                    isSelected
-                      ? "bg-violet-500/10"
-                      : "hover:bg-white/5"
+                  onClick={() => pick(token.currencyCode)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-left ${
+                    isSelected ? "bg-violet-500/10" : "hover:bg-accent dark:hover:bg-white/[0.04]"
                   }`}
                 >
                   <img
                     src={token.symbolImageUrl || getCryptoIconUrl(token.currencyCode)}
                     alt=""
-                    className="w-8 h-8 rounded-full bg-white/5"
+                    className="w-9 h-9 rounded-full bg-accent dark:bg-white/5 p-0.5"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium text-sm">
-                        {token.currencyCode}
-                      </span>
+                      <span className="font-semibold text-sm">{token.currencyCode}</span>
                       {isSandbox && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20 font-medium">
                           Sandbox
                         </span>
                       )}
@@ -135,7 +136,7 @@ export function TokenSelector({
             })}
 
             {filtered.length === 0 && (
-              <div className="text-center py-8 text-sm text-muted-foreground">
+              <div className="text-center py-10 text-sm text-muted-foreground">
                 No tokens match &ldquo;{search}&rdquo;
               </div>
             )}

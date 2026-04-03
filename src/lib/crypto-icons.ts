@@ -23,6 +23,37 @@ const FIAT_FLAGS: Record<string, string> = {
   BRL: "🇧🇷",
   JPY: "🇯🇵",
   INR: "🇮🇳",
+  MXN: "🇲🇽",
+  CHF: "🇨🇭",
+  SGD: "🇸🇬",
+  HKD: "🇭🇰",
+  KRW: "🇰🇷",
+  SEK: "🇸🇪",
+  NOK: "🇳🇴",
+  DKK: "🇩🇰",
+  PLN: "🇵🇱",
+  CZK: "🇨🇿",
+  TRY: "🇹🇷",
+  NZD: "🇳🇿",
+  ZAR: "🇿🇦",
+  THB: "🇹🇭",
+  TWD: "🇹🇼",
+  PHP: "🇵🇭",
+  IDR: "🇮🇩",
+  CLP: "🇨🇱",
+  COP: "🇨🇴",
+  ARS: "🇦🇷",
+  PEN: "🇵🇪",
+  NGN: "🇳🇬",
+  KES: "🇰🇪",
+  GHS: "🇬🇭",
+  EGP: "🇪🇬",
+  MAD: "🇲🇦",
+  AED: "🇦🇪",
+  SAR: "🇸🇦",
+  ILS: "🇮🇱",
+  VND: "🇻🇳",
+  MYR: "🇲🇾",
 };
 
 export function getFiatFlag(code: string): string {
@@ -46,4 +77,33 @@ const PROVIDER_COLORS: Record<string, string> = {
 
 export function getProviderColor(name: string): string {
   return PROVIDER_COLORS[name] ?? "#8B5CF6";
+}
+
+export interface PaymentMethodInfo {
+  label: string;
+  icon: string;
+  description: string;
+}
+
+const PAYMENT_INFO: Record<string, PaymentMethodInfo> = {
+  CREDIT_DEBIT_CARD: { label: "Card", icon: "💳", description: "Visa, Mastercard, etc." },
+  APPLE_PAY: { label: "Apple Pay", icon: "🍎", description: "Pay with Face ID / Touch ID" },
+  GOOGLE_PAY: { label: "Google Pay", icon: "📱", description: "Pay with your Google account" },
+  SEPA: { label: "SEPA Transfer", icon: "🏦", description: "EU bank transfer" },
+  PIX: { label: "PIX", icon: "⚡", description: "Brazil instant payment" },
+  ACH: { label: "ACH Transfer", icon: "🏛️", description: "US bank transfer" },
+  BANK_TRANSFER: { label: "Bank Transfer", icon: "🏦", description: "Wire transfer" },
+  OPEN_BANKING: { label: "Open Banking", icon: "🔗", description: "Direct bank connection" },
+  UK_FASTER_PAYMENTS: { label: "Faster Payments", icon: "🇬🇧", description: "UK instant transfer" },
+  UPI: { label: "UPI", icon: "🇮🇳", description: "India unified payments" },
+  SPEI: { label: "SPEI", icon: "🇲🇽", description: "Mexico bank transfer" },
+  PAYOUT_TO_CARD: { label: "Card Payout", icon: "💳", description: "Receive to debit card" },
+};
+
+export function getPaymentMethodInfo(key: string): PaymentMethodInfo {
+  return PAYMENT_INFO[key] ?? {
+    label: key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    icon: "💰",
+    description: "Payment method",
+  };
 }
