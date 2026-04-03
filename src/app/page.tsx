@@ -53,6 +53,7 @@ export default function ExchangePage() {
   const [quotes, setQuotes] = useState<CryptoQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [loadingInit, setLoadingInit] = useState(true);
+  const [loadingCountry, setLoadingCountry] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creatingSession, setCreatingSession] = useState<string | null>(null);
 
@@ -115,6 +116,7 @@ export default function ExchangePage() {
     if (!code) return;
     setCountryCode(code);
     setQuotes([]);
+    setLoadingCountry(true);
     try {
       const [defaultsRes, cryptoRes, fiatRes] = await Promise.all([
         fetch(`/api/countries?defaults=${code}`).then((r) => r.json()),
@@ -136,6 +138,8 @@ export default function ExchangePage() {
       }
     } catch (err) {
       console.error("Country change error:", err);
+    } finally {
+      setLoadingCountry(false);
     }
   }, [selectedCrypto]);
 
@@ -188,6 +192,7 @@ export default function ExchangePage() {
         sourceAmount: parseFloat(amt),
       };
       if (selectedPayment) body.paymentMethodType = selectedPayment;
+      if (walletAddress.trim()) body.walletAddress = walletAddress.trim();
 
       const res = await fetch("/api/quote", {
         method: "POST",
@@ -296,7 +301,12 @@ export default function ExchangePage() {
         </p>
       </div>
 
-      <Card className="border-border/50">
+      <Card className="border-border/50 relative overflow-hidden">
+        {loadingCountry && (
+          <div className="absolute inset-0 bg-card/80 backdrop-blur-sm z-10 flex items-center justify-center">
+            <span className="w-5 h-5 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin" />
+          </div>
+        )}
         <CardContent className="pt-6 space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
@@ -536,8 +546,13 @@ function QuoteCard({
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
-                Score: {quote.rampIntelligence?.rampScore?.toFixed(1) ?? "N/A"}
+                <span title="rampScore measures conversion likelihood based on provider reliability, payment method compatibility, and historical success rates for this region">
+                  Score: {quote.rampIntelligence?.rampScore?.toFixed(1) ?? "N/A"}
+                </span>
                 {quote.rampIntelligence?.lowKyc && " · Low KYC"}
+                {quote.paymentMethodType && (
+                  <span> · {formatPaymentMethod(quote.paymentMethodType)}</span>
+                )}
                 {pctBetter && parseFloat(pctBetter) > 0 && (
                   <span className="text-green-400 ml-1">· +{pctBetter}% vs lowest</span>
                 )}

@@ -2,9 +2,22 @@
 
 A full-stack crypto on-ramp integration built with **Next.js 16**, **TypeScript**, and **Meld's White-Label API**. Users can compare real-time quotes from multiple crypto providers, select the best rate, and complete a purchase — all through a single interface.
 
-Meld's core value is **aggregation over a single provider**. Instead of integrating Transak, Moonpay, or Stripe individually (each with different coverage, pricing, and KYC flows), Meld routes through 50+ providers via one API and uses its `rampScore` algorithm to rank quotes by conversion likelihood — not just price. This integration demonstrates that pattern end-to-end.
+Meld's core value is **aggregation over a single provider**. A team integrating MoonPay gets one provider with one set of countries, fees, and payment methods. Integrating Transak gets another set. Integrating both doubles the work and requires custom routing logic. Meld solves this: one API, 50+ providers, 180+ countries, 150+ fiat currencies, 54 local payment methods. The `rampScore` algorithm ranks quotes not just by price, but by conversion likelihood — factoring in regional success rates, payment method compatibility, and real-time provider health. This integration demonstrates that pattern end-to-end.
 
 **Live Demo:** _[Deployed on Vercel — link TBD]_
+
+---
+
+## Key Concepts (for non-crypto readers)
+
+| Term | What It Means |
+|------|--------------|
+| **On-ramp** | Converting fiat money (USD, EUR) into cryptocurrency. The user pays with a credit card or bank transfer and receives BTC, ETH, etc. in their wallet. |
+| **Off-ramp** | The reverse — converting crypto back to fiat and withdrawing to a bank account. |
+| **KYC** | "Know Your Customer" — identity verification required by regulations before a user can buy/sell crypto. Each provider handles this differently. |
+| **Stablecoin** | A cryptocurrency pegged to a fiat currency (e.g., USDC = $1 USD). Used for payments, remittances, and DeFi. |
+| **rampScore** | Meld's proprietary scoring algorithm that ranks providers by conversion likelihood — factoring in historical success rates, regional compatibility, payment method fit, and real-time provider performance. Higher score = higher chance the user completes the purchase. |
+| **Wallet address** | A public blockchain address where purchased crypto is delivered. Like a bank account number, but for crypto. |
 
 ---
 
@@ -52,6 +65,8 @@ This app implements Meld's complete 7-step White-Label API flow:
 - **Quotes ranked by `rampScore`.** Meld's conversion-likelihood algorithm. Secondary sort: highest `destinationAmount` (most crypto for the user's money).
 - **Webhook idempotency.** Incoming events are deduplicated by `eventId` before processing, as Meld's docs recommend.
 - **Specific error messages.** HTTP 401, 403, 429, and 5xx from Meld are mapped to human-readable messages rather than generic "something went wrong."
+- **API versioning.** Every request includes the `Meld-Version: 2026-02-03` header. Meld's docs note that non-breaking changes (new fields) ship without versioning, while breaking changes are versioned. The API client uses flexible parsing to handle unexpected fields gracefully.
+- **Wallet address forwarded to quote request.** When available, the user's wallet is included in the quote for more accurate pricing from providers that factor it in.
 
 ---
 
@@ -145,18 +160,27 @@ Some providers return `null` for `networkFee` or `partnerFee` in quotes. The fir
 **5. Webhook testing requires a public URL.**
 Meld webhooks need a publicly accessible endpoint. Locally, this requires ngrok or similar. On Vercel, the API route is natively public, which solves it in production. For local dev, I used [webhook.site](https://webhook.site) to inspect payloads during development.
 
+**6. React `useRef` strict mode typing in Next.js 16.**
+`useRef<ReturnType<typeof setTimeout>>()` without an initial value fails TypeScript strict mode because the generic expects exactly 1 argument. The fix was `useRef<ReturnType<typeof setTimeout> | null>(null)` — a subtle difference that only surfaces with `strict: true` in `tsconfig.json`.
+
+**7. Debounce closure capturing stale state.**
+The auto-quote debounce initially checked `amountError` inside the `setTimeout` callback, but closures capture the variable's value at creation time, not execution time. If the user typed a valid amount after an invalid one, the debounce would still see the old error. Fixed by having `validateAmount()` return a boolean and passing that directly into the closure instead of reading state.
+
 ---
 
 ## Improvements I'd Make
 
-1. **Persistent transaction store** — Vercel KV or Postgres for durable webhook event storage
-2. **WebSocket push** — Stream transaction status changes to the frontend instead of manual lookup
-3. **Sell flow** — Add the reverse path (crypto → fiat) once sandbox supports full off-ramp transactions
-4. **Quote auto-refresh timer** — Visual countdown + auto-refetch every 30s to keep prices current
-5. **Webhook signature verification** — Validate incoming webhook authenticity using Meld's HMAC signing
-6. **Rate limiting** — Protect API routes from abuse with per-IP throttling
-7. **Multi-wallet support** — Save and select from multiple wallet addresses per token type
-8. **Error retry with backoff** — Resilient API calls for production reliability (currently fail-fast)
+1. **Persistent transaction store** — Vercel KV or Postgres for durable webhook event storage across deployments
+2. **WebSocket push** — Stream transaction status changes to the frontend in real-time instead of manual lookup
+3. **Sell flow (off-ramp)** — Add crypto-to-fiat conversion once sandbox supports full off-ramp transactions
+4. **Transfer flow** — Support exchange-to-wallet transfers using Meld's transfer API
+5. **Quote auto-refresh timer** — Visual countdown + auto-refetch every 30s since crypto prices are volatile
+6. **Webhook signature verification** — Validate incoming webhook authenticity using [Meld's HMAC signing](https://docs.meld.io/docs/webhooks-authentication)
+7. **Rate limiting** — Protect API routes from abuse with per-IP throttling via Vercel middleware
+8. **Multi-wallet support** — Save and select from multiple wallet addresses per token type, validated by chain
+9. **Error retry with exponential backoff** — Resilient API calls with jitter for production reliability
+10. **Ramp Intelligence deep integration** — Leverage Meld's [conversion routing](https://docs.meld.io/docs/ramp-intelligence) API to pre-filter providers by `lowKyc` thresholds, reducing friction for small purchases
+11. **Multi-downstream app support** — Meld supports [multiple downstream applications](https://docs.meld.io/docs/supporting-multiple-downstream-applications) per account — could expose app-level configuration in the UI
 
 ---
 
