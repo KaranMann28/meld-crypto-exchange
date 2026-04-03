@@ -9,8 +9,14 @@ interface StoredTransaction {
 }
 
 const store = new Map<string, StoredTransaction>();
+const processedEventIds = new Set<string>();
 
-export function upsertTransaction(event: WebhookEvent) {
+export function upsertTransaction(event: WebhookEvent): boolean {
+  if (processedEventIds.has(event.eventId)) {
+    return false;
+  }
+  processedEventIds.add(event.eventId);
+
   const txId = event.payload.paymentTransactionId;
   const existing = store.get(txId);
 
@@ -21,6 +27,8 @@ export function upsertTransaction(event: WebhookEvent) {
     details: existing?.details,
     updatedAt: event.timestamp,
   });
+
+  return true;
 }
 
 export function setTransactionDetails(

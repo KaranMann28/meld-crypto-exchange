@@ -15,15 +15,37 @@ const API_BASE = process.env.MELD_API_BASE_URL || "https://api-sb.meld.io";
 const API_KEY = process.env.MELD_API_KEY || "";
 const API_VERSION = process.env.MELD_API_VERSION || "2026-02-03";
 
-class MeldAPIError extends Error {
+const ERROR_MESSAGES: Record<number, string> = {
+  401: "Invalid API key or authentication failed",
+  403: "Access forbidden — check account permissions",
+  429: "Rate limit exceeded — please wait and retry",
+  500: "Meld server error — please try again later",
+  502: "Meld service unavailable — please try again later",
+  503: "Meld service unavailable — please try again later",
+};
+
+export class MeldAPIError extends Error {
   constructor(
     public status: number,
     public endpoint: string,
-    message: string,
+    public rawBody: string,
   ) {
-    super(`Meld API Error (${status}) at ${endpoint}: ${message}`);
+    super(ERROR_MESSAGES[status] || `Unexpected error (${status})`);
     this.name = "MeldAPIError";
   }
+}
+
+// --- TTL cache for static data (Meld recommends 1-week cache) ---
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+const cache = new Map<string, { data: unknown; ts: number }>();
+
+function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.ts < CACHE_TTL) return Promise.resolve(hit.data as T);
+  return fn().then((data) => {
+    cache.set(key, { data, ts: Date.now() });
+    return data;
+  });
 }
 
 async function meldFetch<T>(
@@ -50,51 +72,65 @@ async function meldFetch<T>(
 }
 
 export async function getCountries(): Promise<MeldCountry[]> {
-  return meldFetch<MeldCountry[]>(
-    "/service-providers/properties/countries?accountFilter=true",
+  return cached("countries", () =>
+    meldFetch<MeldCountry[]>(
+      "/service-providers/properties/countries?accountFilter=true",
+    ),
   );
 }
 
 export async function getCountryDefaults(
   countryCode: string,
 ): Promise<CountryDefaults[]> {
-  return meldFetch<CountryDefaults[]>(
-    `/service-providers/properties/defaults/by-country?countries=${countryCode}`,
+  return cached(`defaults:${countryCode}`, () =>
+    meldFetch<CountryDefaults[]>(
+      `/service-providers/properties/defaults/by-country?countries=${countryCode}`,
+    ),
   );
 }
 
 export async function getFiatCurrencies(
   countryCode: string,
 ): Promise<FiatCurrency[]> {
-  return meldFetch<FiatCurrency[]>(
-    `/service-providers/properties/fiat-currencies?countries=${countryCode}&accountFilter=true`,
+  return cached(`fiat:${countryCode}`, () =>
+    meldFetch<FiatCurrency[]>(
+      `/service-providers/properties/fiat-currencies?countries=${countryCode}&accountFilter=true`,
+    ),
   );
 }
 
 export async function getCryptoCurrencies(
   countryCode: string,
 ): Promise<CryptoCurrency[]> {
-  const data = await meldFetch<CryptoCurrency[]>(
-    `/service-providers/properties/crypto-currencies?countries=${countryCode}&accountFilter=true`,
-  );
-  return Array.isArray(data) ? data : [];
+  return cached(`crypto:${countryCode}`, async () => {
+    const data = await meldFetch<CryptoCurrency[]>(
+      `/service-providers/properties/crypto-currencies?countries=${countryCode}&accountFilter=true`,
+    );
+    return Array.isArray(data) ? data : [];
+  });
 }
 
 export async function getPaymentMethods(
   fiatCurrency: string,
 ): Promise<PaymentMethod[]> {
-  return meldFetch<PaymentMethod[]>(
-    `/service-providers/properties/payment-methods?fiatCurrencies=${fiatCurrency}&accountFilter=true`,
+  return cached(`pm:${fiatCurrency}`, () =>
+    meldFetch<PaymentMethod[]>(
+      `/service-providers/properties/payment-methods?fiatCurrencies=${fiatCurrency}&accountFilter=true`,
+    ),
   );
 }
 
 export async function getPurchaseLimits(): Promise<
   Record<string, { minAmount: number; maxAmount: number }>
 > {
-  return meldFetch(
-    "/service-providers/limits/fiat-currency-purchases?accountFilter=true",
+  return cached("limits", () =>
+    meldFetch(
+      "/service-providers/limits/fiat-currency-purchases?accountFilter=true",
+    ),
   );
 }
+
+// --- Real-time calls (never cached) ---
 
 export async function getCryptoQuote(
   request: QuoteRequest,

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,19 +17,38 @@ import {
 import { getCryptoIconUrl, getFiatFlag, getProviderColor } from "@/lib/crypto-icons";
 import type {
   MeldCountry,
+  FiatCurrency,
   CryptoCurrency,
   CryptoQuote,
   CountryDefaults,
+  PaymentMethod,
 } from "@/lib/types";
+
+const SANDBOX_TOKENS = ["BTC", "ETH", "USDC"];
+
+function sortCryptos(list: CryptoCurrency[]): CryptoCurrency[] {
+  const sandbox: CryptoCurrency[] = [];
+  const rest: CryptoCurrency[] = [];
+  for (const c of list) {
+    if (SANDBOX_TOKENS.includes(c.currencyCode)) sandbox.push(c);
+    else rest.push(c);
+  }
+  return [...sandbox, ...rest];
+}
 
 export default function ExchangePage() {
   const [countries, setCountries] = useState<MeldCountry[]>([]);
   const [countryCode, setCountryCode] = useState("US");
   const [defaults, setDefaults] = useState<CountryDefaults | null>(null);
+  const [fiatCurrencies, setFiatCurrencies] = useState<FiatCurrency[]>([]);
+  const [fiatCurrency, setFiatCurrency] = useState("USD");
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState("");
   const [cryptos, setCryptos] = useState<CryptoCurrency[]>([]);
   const [selectedCrypto, setSelectedCrypto] = useState("");
-  const [fiatCurrency, setFiatCurrency] = useState("USD");
   const [amount, setAmount] = useState("100");
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [limits, setLimits] = useState<Record<string, { minAmount: number; maxAmount: number }> | null>(null);
   const [walletAddress, setWalletAddress] = useState("");
   const [quotes, setQuotes] = useState<CryptoQuote[]>([]);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
@@ -37,29 +56,39 @@ export default function ExchangePage() {
   const [error, setError] = useState<string | null>(null);
   const [creatingSession, setCreatingSession] = useState<string | null>(null);
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     async function init() {
       try {
-        const [countriesRes, defaultsRes, cryptoRes] = await Promise.all([
-          fetch("/api/countries").then((r) => r.json()),
-          fetch("/api/countries?defaults=US").then((r) => r.json()),
-          fetch("/api/currencies?country=US&type=crypto").then((r) => r.json()),
-        ]);
+        const [countriesRes, defaultsRes, cryptoRes, fiatRes, limitsRes] =
+          await Promise.all([
+            fetch("/api/countries").then((r) => r.json()),
+            fetch("/api/countries?defaults=US").then((r) => r.json()),
+            fetch("/api/currencies?country=US&type=crypto").then((r) => r.json()),
+            fetch("/api/currencies?country=US&type=fiat").then((r) => r.json()),
+            fetch("/api/currencies?type=limits").then((r) => r.json()),
+          ]);
+
         setCountries(Array.isArray(countriesRes) ? countriesRes : []);
+        setLimits(limitsRes && !limitsRes.error ? limitsRes : null);
+
         if (Array.isArray(defaultsRes) && defaultsRes.length > 0) {
           setDefaults(defaultsRes[0]);
-          setFiatCurrency(defaultsRes[0].defaultCurrencyCode || "USD");
+          const defCurrency = defaultsRes[0].defaultCurrencyCode || "USD";
+          setFiatCurrency(defCurrency);
+          setSelectedPayment(defaultsRes[0].defaultPaymentMethods?.[0] || "");
+          loadPaymentMethods(defCurrency);
         }
-        const cryptoList = Array.isArray(cryptoRes) ? cryptoRes : [];
+
+        const fiatList = Array.isArray(fiatRes) ? fiatRes : [];
+        setFiatCurrencies(fiatList);
+
+        const cryptoList = sortCryptos(Array.isArray(cryptoRes) ? cryptoRes : []);
         setCryptos(cryptoList);
         if (cryptoList.length > 0) {
-          const btc = cryptoList.find(
-            (c: CryptoCurrency) => c.currencyCode === "BTC",
-          );
-          const eth = cryptoList.find(
-            (c: CryptoCurrency) => c.currencyCode === "ETH",
-          );
-          setSelectedCrypto(btc?.currencyCode || eth?.currencyCode || cryptoList[0].currencyCode);
+          const btc = cryptoList.find((c) => c.currencyCode === "BTC");
+          setSelectedCrypto(btc?.currencyCode || cryptoList[0].currencyCode);
         }
       } catch (err) {
         console.error("Init error:", err);
@@ -69,23 +98,40 @@ export default function ExchangePage() {
       }
     }
     init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleCountryChange = useCallback(async (code: string) => {
+  async function loadPaymentMethods(fiat: string) {
+    try {
+      const res = await fetch(`/api/currencies?type=payment-methods&fiat=${fiat}`);
+      const data = await res.json();
+      setPaymentMethods(Array.isArray(data) ? data : []);
+    } catch {
+      setPaymentMethods([]);
+    }
+  }
+
+  const handleCountryChange = useCallback(async (code: string | null) => {
+    if (!code) return;
     setCountryCode(code);
     setQuotes([]);
     try {
-      const [defaultsRes, cryptoRes] = await Promise.all([
+      const [defaultsRes, cryptoRes, fiatRes] = await Promise.all([
         fetch(`/api/countries?defaults=${code}`).then((r) => r.json()),
         fetch(`/api/currencies?country=${code}&type=crypto`).then((r) => r.json()),
+        fetch(`/api/currencies?country=${code}&type=fiat`).then((r) => r.json()),
       ]);
       if (Array.isArray(defaultsRes) && defaultsRes.length > 0) {
         setDefaults(defaultsRes[0]);
-        setFiatCurrency(defaultsRes[0].defaultCurrencyCode || "USD");
+        const defCurrency = defaultsRes[0].defaultCurrencyCode || "USD";
+        setFiatCurrency(defCurrency);
+        setSelectedPayment(defaultsRes[0].defaultPaymentMethods?.[0] || "");
+        loadPaymentMethods(defCurrency);
       }
-      const cryptoList = Array.isArray(cryptoRes) ? cryptoRes : [];
+      setFiatCurrencies(Array.isArray(fiatRes) ? fiatRes : []);
+      const cryptoList = sortCryptos(Array.isArray(cryptoRes) ? cryptoRes : []);
       setCryptos(cryptoList);
-      if (cryptoList.length > 0 && !cryptoList.find((c: CryptoCurrency) => c.currencyCode === selectedCrypto)) {
+      if (cryptoList.length > 0 && !cryptoList.find((c) => c.currencyCode === selectedCrypto)) {
         setSelectedCrypto(cryptoList[0].currencyCode);
       }
     } catch (err) {
@@ -93,21 +139,57 @@ export default function ExchangePage() {
     }
   }, [selectedCrypto]);
 
-  const fetchQuotes = useCallback(async () => {
-    if (!amount || parseFloat(amount) <= 0 || !selectedCrypto) return;
+  const handleFiatChange = useCallback((code: string | null) => {
+    if (!code) return;
+    setFiatCurrency(code);
+    setQuotes([]);
+    loadPaymentMethods(code);
+  }, []);
+
+  function validateAmount(val: string) {
+    const num = parseFloat(val);
+    if (!val || isNaN(num)) { setAmountError(null); return; }
+    if (!limits || !limits[fiatCurrency]) { setAmountError(null); return; }
+    const lim = limits[fiatCurrency];
+    if (num < lim.minAmount) {
+      setAmountError(`Minimum: ${lim.minAmount} ${fiatCurrency}`);
+    } else if (num > lim.maxAmount) {
+      setAmountError(`Maximum: ${lim.maxAmount.toLocaleString()} ${fiatCurrency}`);
+    } else {
+      setAmountError(null);
+    }
+  }
+
+  function handleAmountChange(val: string) {
+    setAmount(val);
+    validateAmount(val);
+    if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (val && parseFloat(val) > 0 && selectedCrypto && !amountError) {
+        fetchQuotes(val);
+      }
+    }, 800);
+  }
+
+  const fetchQuotes = useCallback(async (overrideAmount?: string | undefined) => {
+    const amt = overrideAmount ?? amount;
+    if (!amt || parseFloat(amt) <= 0 || !selectedCrypto) return;
     setLoadingQuotes(true);
     setError(null);
     setQuotes([]);
     try {
+      const body: Record<string, unknown> = {
+        countryCode,
+        sourceCurrencyCode: fiatCurrency,
+        destinationCurrencyCode: selectedCrypto,
+        sourceAmount: parseFloat(amt),
+      };
+      if (selectedPayment) body.paymentMethodType = selectedPayment;
+
       const res = await fetch("/api/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          countryCode,
-          sourceCurrencyCode: fiatCurrency,
-          destinationCurrencyCode: selectedCrypto,
-          sourceAmount: parseFloat(amount),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (data.error) {
@@ -115,21 +197,20 @@ export default function ExchangePage() {
       } else {
         setQuotes(data.quotes || []);
         if (!data.quotes?.length) {
-          setError("No quotes available for this combination. Try a different amount or token.");
+          setError("No quotes available for this combination. Try a different amount, token, or payment method.");
         }
       }
-    } catch (err) {
-      console.error("Quote error:", err);
+    } catch {
       setError("Failed to fetch quotes");
     } finally {
       setLoadingQuotes(false);
     }
-  }, [amount, countryCode, fiatCurrency, selectedCrypto]);
+  }, [amount, countryCode, fiatCurrency, selectedCrypto, selectedPayment]);
 
   const launchProvider = useCallback(
     async (quote: CryptoQuote) => {
       if (!walletAddress.trim()) {
-        setError("Please enter a wallet address to proceed.");
+        setError("Enter a wallet address to proceed.");
         return;
       }
       setCreatingSession(quote.serviceProvider);
@@ -156,12 +237,25 @@ export default function ExchangePage() {
           setError(session.error);
           return;
         }
+
+        try {
+          const prev = JSON.parse(localStorage.getItem("meld_sessions") || "[]");
+          prev.unshift({
+            id: session.id,
+            provider: quote.serviceProvider,
+            amount: quote.sourceAmount,
+            fiat: fiatCurrency,
+            crypto: selectedCrypto,
+            ts: new Date().toISOString(),
+          });
+          localStorage.setItem("meld_sessions", JSON.stringify(prev.slice(0, 20)));
+        } catch { /* localStorage unavailable */ }
+
         const url = session.serviceProviderWidgetUrl || session.widgetUrl;
         if (url) {
           window.open(url, "meld-widget", "width=460,height=720,scrollbars=yes,resizable=yes");
         }
-      } catch (err) {
-        console.error("Session error:", err);
+      } catch {
         setError("Failed to create session");
       } finally {
         setCreatingSession(null);
@@ -174,17 +268,21 @@ export default function ExchangePage() {
     return (
       <div className="max-w-lg mx-auto px-4 py-16">
         <Card>
-          <CardHeader><Skeleton className="h-8 w-48" /></CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-6 space-y-4">
+            <Skeleton className="h-8 w-48" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-14 w-full" />
             <Skeleton className="h-12 w-full" />
           </CardContent>
         </Card>
       </div>
     );
   }
+
+  const worstQuote = quotes.length > 1
+    ? Math.min(...quotes.map((q) => q.destinationAmount))
+    : null;
 
   return (
     <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
@@ -197,13 +295,10 @@ export default function ExchangePage() {
 
       <Card className="border-border/50">
         <CardContent className="pt-6 space-y-5">
-          {/* Country + Fiat Currency */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Country
-              </label>
-              <Select value={countryCode} onValueChange={handleCountryChange}>
+              <label className="text-xs font-medium text-muted-foreground">Country</label>
+              <Select value={countryCode} onValueChange={(v) => v && handleCountryChange(v)}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
@@ -222,84 +317,105 @@ export default function ExchangePage() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                Currency
-              </label>
-              <Select value={fiatCurrency} onValueChange={setFiatCurrency}>
+              <label className="text-xs font-medium text-muted-foreground">Currency</label>
+              <Select value={fiatCurrency} onValueChange={(v) => v && handleFiatChange(v)}>
                 <SelectTrigger className="h-10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {defaults?.defaultCurrencyCode && (
-                    <SelectItem value={defaults.defaultCurrencyCode}>
-                      {getFiatFlag(defaults.defaultCurrencyCode)}{" "}
-                      {defaults.defaultCurrencyCode}
+                  {fiatCurrencies.map((c) => (
+                    <SelectItem key={c.currencyCode} value={c.currencyCode}>
+                      {getFiatFlag(c.currencyCode)} {c.currencyCode}
                     </SelectItem>
-                  )}
-                  {!defaults?.defaultCurrencyCode && (
-                    <SelectItem value="USD">{getFiatFlag("USD")} USD</SelectItem>
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
+          {paymentMethods.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Payment method</label>
+              <div className="flex flex-wrap gap-2">
+                {paymentMethods.map((pm) => {
+                  const key = pm.paymentMethod;
+                  const active = selectedPayment === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedPayment(active ? "" : key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? "bg-violet-500/15 text-violet-400 border-violet-500/30"
+                          : "bg-muted/50 text-muted-foreground border-transparent hover:border-border"
+                      }`}
+                    >
+                      {formatPaymentMethod(key)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <Separator className="opacity-50" />
 
-          {/* Amount */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              You pay
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">You pay</label>
             <div className="relative">
               <Input
                 type="number"
                 min="1"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => handleAmountChange(e.target.value)}
                 placeholder="100"
-                className="h-14 text-2xl font-semibold pr-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                className={`h-14 text-2xl font-semibold pr-16 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                  amountError ? "border-destructive" : ""
+                }`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                 {fiatCurrency}
               </span>
             </div>
+            {amountError && (
+              <p className="text-xs text-destructive">{amountError}</p>
+            )}
           </div>
 
-          {/* Crypto Selection */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              You receive
-            </label>
-            <Select value={selectedCrypto} onValueChange={setSelectedCrypto}>
+            <label className="text-xs font-medium text-muted-foreground">You receive</label>
+            <Select value={selectedCrypto} onValueChange={(v) => v && setSelectedCrypto(v)}>
               <SelectTrigger className="h-12">
                 <SelectValue placeholder="Select token" />
               </SelectTrigger>
               <SelectContent>
-                {cryptos.map((c) => (
-                  <SelectItem key={c.currencyCode} value={c.currencyCode}>
-                    <span className="flex items-center gap-2">
-                      <img
-                        src={c.symbolImageUrl || getCryptoIconUrl(c.currencyCode)}
-                        alt={c.name}
-                        className="w-5 h-5 rounded-full"
-                      />
-                      <span className="font-medium">{c.name || c.currencyName}</span>
-                      <span className="text-muted-foreground text-xs">
-                        {c.chainName || c.networkName}
+                {cryptos.map((c) => {
+                  const isSandbox = SANDBOX_TOKENS.includes(c.currencyCode);
+                  return (
+                    <SelectItem key={c.currencyCode} value={c.currencyCode}>
+                      <span className="flex items-center gap-2">
+                        <img
+                          src={c.symbolImageUrl || getCryptoIconUrl(c.currencyCode)}
+                          alt={c.name}
+                          className="w-5 h-5 rounded-full"
+                        />
+                        <span className="font-medium">{c.name || c.currencyName}</span>
+                        <span className="text-muted-foreground text-xs">{c.chainName || c.networkName}</span>
+                        {isSandbox && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/20">
+                            Sandbox
+                          </span>
+                        )}
                       </span>
-                    </span>
-                  </SelectItem>
-                ))}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
 
-          {/* Wallet Address */}
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
-              Wallet address
-            </label>
+            <label className="text-xs font-medium text-muted-foreground">Wallet address</label>
             <Input
               value={walletAddress}
               onChange={(e) => setWalletAddress(e.target.value)}
@@ -315,8 +431,8 @@ export default function ExchangePage() {
           )}
 
           <Button
-            onClick={fetchQuotes}
-            disabled={loadingQuotes || !amount || !selectedCrypto}
+            onClick={() => fetchQuotes()}
+            disabled={loadingQuotes || !amount || !selectedCrypto || !!amountError}
             className="w-full h-12 text-base font-semibold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
           >
             {loadingQuotes ? (
@@ -331,7 +447,6 @@ export default function ExchangePage() {
         </CardContent>
       </Card>
 
-      {/* Quotes */}
       {quotes.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
@@ -348,6 +463,7 @@ export default function ExchangePage() {
               key={`${quote.serviceProvider}-${i}`}
               quote={quote}
               isTop={i === 0}
+              worstAmount={worstQuote}
               onSelect={() => launchProvider(quote)}
               loading={creatingSession === quote.serviceProvider}
             />
@@ -361,15 +477,22 @@ export default function ExchangePage() {
 function QuoteCard({
   quote,
   isTop,
+  worstAmount,
   onSelect,
   loading,
 }: {
   quote: CryptoQuote;
   isTop: boolean;
+  worstAmount: number | null;
   onSelect: () => void;
   loading: boolean;
 }) {
   const providerColor = getProviderColor(quote.serviceProvider);
+
+  const pctBetter =
+    isTop && worstAmount && worstAmount > 0
+      ? (((quote.destinationAmount - worstAmount) / worstAmount) * 100).toFixed(1)
+      : null;
 
   return (
     <Card
@@ -401,6 +524,9 @@ function QuoteCard({
               <div className="text-xs text-muted-foreground">
                 Score: {quote.rampIntelligence?.rampScore?.toFixed(1) ?? "N/A"}
                 {quote.rampIntelligence?.lowKyc && " · Low KYC"}
+                {pctBetter && parseFloat(pctBetter) > 0 && (
+                  <span className="text-green-400 ml-1">· +{pctBetter}% vs lowest</span>
+                )}
               </div>
             </div>
           </div>
@@ -419,30 +545,10 @@ function QuoteCard({
         </div>
 
         <div className="grid grid-cols-4 gap-2 text-center text-xs">
-          <div className="bg-muted/50 rounded-md px-2 py-1.5">
-            <div className="text-muted-foreground">Total Fee</div>
-            <div className="font-medium">
-              ${quote.totalFee?.toFixed(2)}
-            </div>
-          </div>
-          <div className="bg-muted/50 rounded-md px-2 py-1.5">
-            <div className="text-muted-foreground">Network</div>
-            <div className="font-medium">
-              ${quote.networkFee?.toFixed(2)}
-            </div>
-          </div>
-          <div className="bg-muted/50 rounded-md px-2 py-1.5">
-            <div className="text-muted-foreground">Provider</div>
-            <div className="font-medium">
-              ${quote.transactionFee?.toFixed(2)}
-            </div>
-          </div>
-          <div className="bg-muted/50 rounded-md px-2 py-1.5">
-            <div className="text-muted-foreground">Partner</div>
-            <div className="font-medium">
-              ${quote.partnerFee?.toFixed(2)}
-            </div>
-          </div>
+          <FeeCell label="Total Fee" value={quote.totalFee} />
+          <FeeCell label="Network" value={quote.networkFee} />
+          <FeeCell label="Provider" value={quote.transactionFee} />
+          <FeeCell label="Partner" value={quote.partnerFee} />
         </div>
 
         <Button
@@ -463,4 +569,27 @@ function QuoteCard({
       </CardContent>
     </Card>
   );
+}
+
+function FeeCell({ label, value }: { label: string; value: number | null | undefined }) {
+  return (
+    <div className="bg-muted/50 rounded-md px-2 py-1.5">
+      <div className="text-muted-foreground">{label}</div>
+      <div className="font-medium">{value != null ? `$${value.toFixed(2)}` : "—"}</div>
+    </div>
+  );
+}
+
+const PAYMENT_LABELS: Record<string, string> = {
+  CREDIT_DEBIT_CARD: "Card",
+  APPLE_PAY: "Apple Pay",
+  GOOGLE_PAY: "Google Pay",
+  SEPA: "SEPA",
+  PIX: "PIX",
+  ACH: "ACH",
+  BANK_TRANSFER: "Bank Transfer",
+};
+
+function formatPaymentMethod(key: string): string {
+  return PAYMENT_LABELS[key] || key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

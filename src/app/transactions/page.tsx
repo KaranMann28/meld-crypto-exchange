@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,15 @@ interface TransactionResult {
   }>;
 }
 
+interface RecentSession {
+  id: string;
+  provider: string;
+  amount: number;
+  fiat: string;
+  crypto: string;
+  ts: string;
+}
+
 const STATUS_STYLES: Record<string, string> = {
   PENDING: "bg-yellow-500/15 text-yellow-400 border-yellow-500/20",
   SETTLING: "bg-blue-500/15 text-blue-400 border-blue-500/20",
@@ -45,14 +54,24 @@ export default function TransactionsPage() {
   const [result, setResult] = useState<TransactionResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
 
-  async function lookupTransaction() {
-    if (!txId.trim()) return;
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("meld_sessions") || "[]");
+      setRecentSessions(Array.isArray(stored) ? stored : []);
+    } catch { /* ignore */ }
+  }, []);
+
+  async function lookupTransaction(id?: string) {
+    const lookupId = (id || txId).trim();
+    if (!lookupId) return;
+    setTxId(lookupId);
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const res = await fetch(`/api/transaction/${txId.trim()}`);
+      const res = await fetch(`/api/transaction/${lookupId}`);
       const data = await res.json();
       if (data.error) {
         setError(data.error);
@@ -91,7 +110,7 @@ export default function TransactionsPage() {
               onKeyDown={(e) => e.key === "Enter" && lookupTransaction()}
             />
             <Button
-              onClick={lookupTransaction}
+              onClick={() => lookupTransaction()}
               disabled={loading || !txId.trim()}
               className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shrink-0"
             >
@@ -110,6 +129,33 @@ export default function TransactionsPage() {
           )}
         </CardContent>
       </Card>
+
+      {recentSessions.length > 0 && !result && (
+        <Card className="border-border/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Recent Sessions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentSessions.map((s, i) => (
+              <button
+                key={i}
+                onClick={() => lookupTransaction(s.id)}
+                className="w-full flex items-center justify-between text-xs bg-muted/40 hover:bg-muted/70 rounded-md px-3 py-2.5 transition-colors text-left"
+              >
+                <div>
+                  <span className="font-medium">{s.provider}</span>
+                  <span className="text-muted-foreground ml-2">
+                    {s.amount} {s.fiat} → {s.crypto}
+                  </span>
+                </div>
+                <div className="text-muted-foreground font-mono">
+                  {formatDate(s.ts)}
+                </div>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {tx && (
         <Card className="border-border/50">

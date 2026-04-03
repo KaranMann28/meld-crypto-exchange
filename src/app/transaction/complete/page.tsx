@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -25,19 +26,18 @@ export default function TransactionCompletePage() {
           </div>
           <h1 className="text-xl font-bold">Transaction Submitted</h1>
           <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-            Your transaction has been submitted to the provider. You can track
-            its status using the transaction ID on the Transactions page.
+            Your transaction has been submitted to the provider. Track its
+            status on the Transactions page.
           </p>
           <div className="flex gap-3 justify-center pt-2">
-            <Button variant="outline" asChild>
-              <a href="/transactions">Track Transaction</a>
-            </Button>
-            <Button
-              asChild
-              className="bg-gradient-to-r from-violet-600 to-indigo-600"
-            >
-              <a href="/">New Purchase</a>
-            </Button>
+            <Link href="/transactions">
+              <Button variant="outline">Track Transaction</Button>
+            </Link>
+            <Link href="/">
+              <Button className="bg-gradient-to-r from-violet-600 to-indigo-600">
+                New Purchase
+              </Button>
+            </Link>
           </div>
         </CardContent>
       </Card>

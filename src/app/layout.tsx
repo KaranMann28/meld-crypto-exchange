@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ApiStatus } from "@/components/api-status";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,9 +50,7 @@ export default function RootLayout({
               >
                 Transactions
               </a>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20">
-                Sandbox
-              </span>
+              <ApiStatus />
             </nav>
           </div>
         </header>

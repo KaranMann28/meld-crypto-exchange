@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createWidgetSession } from "@/lib/meld";
+import { createWidgetSession, MeldAPIError } from "@/lib/meld";
 import type { SessionRequest } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       !body.sessionData?.destinationCurrencyCode
     ) {
       return NextResponse.json(
-        { error: "Missing required session fields" },
+        { error: "Missing required session fields: walletAddress, serviceProvider, destinationCurrencyCode" },
         { status: 400 },
       );
     }
@@ -29,6 +29,12 @@ export async function POST(request: Request) {
     const session = await createWidgetSession(body);
     return NextResponse.json(session);
   } catch (error) {
+    if (error instanceof MeldAPIError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status >= 500 ? 502 : error.status },
+      );
+    }
     console.error("Session API error:", error);
     return NextResponse.json(
       { error: "Failed to create session" },

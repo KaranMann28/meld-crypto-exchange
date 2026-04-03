@@ -2,21 +2,21 @@
 
 A full-stack crypto on-ramp integration built with **Next.js 16**, **TypeScript**, and **Meld's White-Label API**. Users can compare real-time quotes from multiple crypto providers, select the best rate, and complete a purchase — all through a single interface.
 
-**Live Demo:** _[Deployed on Vercel — link TBD after deployment]_
+**Live Demo:** _[Deployed on Vercel — link TBD]_
 
 ---
 
 ## What It Does
 
-This app implements Meld's 7-step White-Label API flow:
+This app implements Meld's complete 7-step White-Label API flow:
 
-1. **Country Detection** — Auto-loads supported countries with flag icons
-2. **Currency Defaults** — Sets fiat currency and payment method based on country
-3. **Crypto Selection** — Displays available tokens with icons from Meld CDN
-4. **Amount Validation** — Input with real-time validation against provider limits
-5. **Quote Comparison** — Fetches live quotes from multiple providers, ranked by Meld's `rampScore` (conversion likelihood)
-6. **Provider Launch** — Creates a widget session and opens the provider's KYC/payment UI
-7. **Transaction Tracking** — Webhook endpoint receives status updates (PENDING → SETTLING → SETTLED)
+1. **Country Detection** — Loads 150+ supported countries with flag icons from Meld's CDN
+2. **Currency + Payment Defaults** — Sets fiat currency and payment method based on country defaults
+3. **Crypto Selection** — Displays tokens with sandbox-supported ones (BTC, ETH, USDC) pinned to the top
+4. **Amount Validation** — Real-time validation against Meld's min/max purchase limits per currency
+5. **Quote Comparison** — Fetches live quotes from multiple providers, ranked by Meld's `rampScore`
+6. **Provider Launch** — Creates a widget session and opens the provider's KYC/payment UI in a popup
+7. **Transaction Tracking** — Webhook endpoint receives status updates; recent sessions persisted client-side
 
 ---
 
@@ -35,20 +35,21 @@ This app implements Meld's 7-step White-Label API flow:
 │   (TX Tracker)   │   /api/transaction/[id]  GET        │
 │                  │   /api/webhook      POST            │
 ├──────────────────┴───────────────────────────────────┤
-│   /lib/meld.ts — API client (BASIC auth, all endpoints) │
+│   /lib/meld.ts — API client w/ TTL cache + error map  │
 │   /lib/types.ts — TypeScript interfaces                │
 │   /lib/transaction-store.ts — In-memory TX cache       │
 │   /lib/crypto-icons.ts — Token icon + provider helpers │
 └──────────────────────────────────────────────────────┘
 ```
 
-**Key design decisions:**
+### Key Design Decisions
 
-- **API key never touches the browser** — All Meld API calls go through Next.js API routes
-- **Static data cacheable** — Countries, currencies, payment methods rarely change (Meld recommends 1-week cache)
-- **Quotes are never cached** — Always fetched fresh for accurate pricing
-- **Quotes ranked by `rampScore`** — Meld's conversion-likelihood score, with `destinationAmount` as tiebreaker
-- **Webhook-ready** — `/api/webhook` endpoint receives Meld events and stores them in-memory for demo purposes
+- **API key never touches the browser.** All Meld calls proxy through Next.js API routes. The `MELD_API_KEY` env var is server-only.
+- **Static data is cached server-side.** Countries, currencies, payment methods, and limits are cached with a 7-day TTL (per Meld's own recommendation in the "API Response Caching Guide").
+- **Quotes are never cached.** Always fetched fresh — crypto prices move every second.
+- **Quotes ranked by `rampScore`.** Meld's conversion-likelihood algorithm. Secondary sort: highest `destinationAmount` (most crypto for the user's money).
+- **Webhook idempotency.** Incoming events are deduplicated by `eventId` before processing, as Meld's docs recommend.
+- **Specific error messages.** HTTP 401, 403, 429, and 5xx from Meld are mapped to human-readable messages rather than generic "something went wrong."
 
 ---
 
@@ -56,10 +57,10 @@ This app implements Meld's 7-step White-Label API flow:
 
 ### Prerequisites
 
-- Node.js 20+ and npm
-- A Meld API key (sandbox)
+- Node.js 20+
+- A Meld sandbox API key
 
-### Install & Run
+### Install
 
 ```bash
 git clone https://github.com/KaranMann28/meld-crypto-exchange.git
@@ -76,7 +77,7 @@ MELD_API_VERSION=2026-02-03
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Start the dev server:
+Start:
 
 ```bash
 npm run dev
@@ -84,58 +85,65 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### Test a Purchase Flow
+### Test a Purchase
 
-1. Select country (US) and crypto (BTC or ETH)
-2. Enter amount (e.g., $100)
-3. Click **Get Quotes** — you'll see quotes from sandbox providers
-4. Enter a test wallet address (e.g., `0xd72cc3468979360e31bc83b84f0887deccfd81d5` for ETH)
-5. Click **Buy with [Provider]** — the provider's sandbox widget opens in a popup
-6. Use test card: `4111 1111 1111 1111`, expiry `10/33`, CVV `123`
+1. Select country (US) and token (BTC — marked "Sandbox")
+2. Enter amount (e.g., $100) — validates against min/max limits
+3. Click **Get Quotes** — see quotes ranked by rampScore with fee breakdown
+4. Enter a test wallet address (`0xd72cc3468979360e31bc83b84f0887deccfd81d5` for ETH)
+5. Click **Buy with [Provider]** — provider widget opens in popup
+6. Use test card `4111 1111 1111 1111`, expiry `10/33`, CVV `123`
 
 ---
 
 ## Assumptions
 
-- **Sandbox only** — All API calls target `api-sb.meld.io`. Sandbox has limited tokens (BTC, ETH, USDC) and providers
-- **In-memory transaction store** — Webhook events are stored in-memory for demo. In production, this would use a database
-- **No user authentication** — This is a demo integration; a production app would have user accounts and session management
-- **Buy flow only** — Sell (off-ramp) is quote-only in sandbox; transfer is configuration-only
+- **Sandbox only.** All calls target `api-sb.meld.io`. Sandbox supports BTC, ETH, USDC; other tokens are available via the API but may not have working providers.
+- **In-memory transaction store.** Webhook events are stored in-process for demo purposes. Production would use a database.
+- **No user auth.** This is a demo integration; a real product would have accounts, session management, and KYC state tracking.
+- **Buy flow only.** Sell is quote-only in sandbox; transfer is config-only.
 
 ---
 
 ## Challenges Faced
 
-1. **API response shape inconsistencies** — The Meld docs show example responses with field names like `countryName` and `currencyName`, but the actual API returns `name` for both. Similarly, `networkCode`/`networkName` are actually `chainCode`/`chainName`. Required defensive coding and runtime discovery.
+**1. API response field names differ from documentation examples.**
+The docs show `countryName`, `currencyName`, and `networkCode`/`networkName` in example responses, but the live API returns `name`, `chainCode`/`chainName`, and `symbolImageUrl` instead. I discovered this by inspecting actual responses, not by reading the docs alone. Every model type in `types.ts` carries both the documented and actual field names as optional properties so the UI can handle either.
 
-2. **Sandbox provider availability** — Not all providers have sandbox environments. Robinhood, Coinbase Pay, and Blockchain.com are production-only. Had to identify which providers actually work in sandbox (Transak, Unlimit, TransFi, Simplex, Sardine).
+**2. Select component type mismatch with Next.js 16.**
+The shadcn/ui Select component generated for Next.js 16 uses Base UI under the hood, which passes `string | null` to `onValueChange` callbacks. Standard React `setState` dispatchers expect `string`. Additionally, the Base UI Button doesn't support `asChild` (a Radix primitive). Both required wrapping handlers with null guards and replacing `asChild` with standard `Link` composition.
 
-3. **Webhook testing locally** — Meld webhooks require a publicly accessible URL. For local development, tools like ngrok or webhook.site are needed. On Vercel, the API route is public by default, solving this for production.
+**3. Sandbox provider availability is undocumented at the API level.**
+The sandbox guide lists supported tokens (BTC, ETH, USDC) but the `/crypto-currencies` endpoint returns 200+ tokens globally. Users selecting unsupported tokens get zero quotes with no error. I solved this by pinning sandbox tokens to the top with a visual badge, so users naturally pick working options first.
 
-4. **Quote response variations** — Some providers return `null` for optional fields (`networkFee`, `partnerFee`). The UI needs null-safe rendering throughout.
+**4. Fee fields can be null.**
+Some providers return `null` for `networkFee` or `partnerFee` in quotes. The first version crashed when calling `.toFixed(2)` on null. I added null-safe rendering with a dash fallback for every fee cell.
+
+**5. Webhook testing requires a public URL.**
+Meld webhooks need a publicly accessible endpoint. Locally, this requires ngrok or similar. On Vercel, the API route is natively public, which solves it in production. For local dev, I used [webhook.site](https://webhook.site) to inspect payloads during development.
 
 ---
 
-## Improvements I'd Suggest
+## Improvements I'd Make
 
-1. **Persistent transaction storage** — Replace in-memory store with Vercel KV or a database for production durability
-2. **WebSocket real-time updates** — Push transaction status changes to the frontend via WebSockets instead of polling
-3. **Sell flow (off-ramp)** — Add the reverse flow (crypto → fiat) once sandbox supports full transactions
-4. **Rate refresh timer** — Auto-refresh quotes every 30 seconds since crypto prices change rapidly
-5. **Fee comparison visualization** — Chart view comparing provider fees side-by-side
-6. **Webhook signature verification** — Validate webhook authenticity using Meld's webhook authentication
-7. **Multi-wallet support** — Let users save and select from multiple wallet addresses
-8. **Error retry with exponential backoff** — More resilient API calls for production reliability
+1. **Persistent transaction store** — Vercel KV or Postgres for durable webhook event storage
+2. **WebSocket push** — Stream transaction status changes to the frontend instead of manual lookup
+3. **Sell flow** — Add the reverse path (crypto → fiat) once sandbox supports full off-ramp transactions
+4. **Quote auto-refresh timer** — Visual countdown + auto-refetch every 30s to keep prices current
+5. **Webhook signature verification** — Validate incoming webhook authenticity using Meld's HMAC signing
+6. **Rate limiting** — Protect API routes from abuse with per-IP throttling
+7. **Multi-wallet support** — Save and select from multiple wallet addresses per token type
+8. **Error retry with backoff** — Resilient API calls for production reliability (currently fail-fast)
 
 ---
 
 ## Tech Stack
 
-- **Next.js 16** (App Router, API Routes)
-- **TypeScript**
-- **Tailwind CSS v4** + **shadcn/ui**
-- **Meld White-Label API** (Sandbox)
-- **Vercel** (Deployment)
+- **Next.js 16** — App Router + API Routes
+- **TypeScript** — Strict mode, zero compilation errors
+- **Tailwind CSS v4** + **shadcn/ui** — Dark theme exchange UI
+- **Meld White-Label API** — Sandbox environment
+- **Vercel** — Deployment
 
 ---
 

@@ -16,7 +16,9 @@ export interface CountryDefaults {
 
 export interface FiatCurrency {
   currencyCode: string;
-  currencyName: string;
+  name?: string;
+  currencyName?: string;
+  flagImageUrl?: string;
   flagUrl?: string;
 }
 
@@ -35,8 +37,16 @@ export interface CryptoCurrency {
 
 export interface PaymentMethod {
   paymentMethod: string;
+  name?: string;
   paymentMethodName?: string;
   logos?: { darkUrl?: string; lightUrl?: string };
+}
+
+export interface PurchaseLimits {
+  [currencyCode: string]: {
+    minAmount: number;
+    maxAmount: number;
+  };
 }
 
 export interface RampIntelligence {

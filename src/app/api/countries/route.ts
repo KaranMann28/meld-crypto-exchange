@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCountries, getCountryDefaults } from "@/lib/meld";
+import { getCountries, getCountryDefaults, MeldAPIError } from "@/lib/meld";
 
 export async function GET(request: Request) {
   try {
@@ -14,6 +14,12 @@ export async function GET(request: Request) {
     const countries = await getCountries();
     return NextResponse.json(countries);
   } catch (error) {
+    if (error instanceof MeldAPIError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status >= 500 ? 502 : error.status },
+      );
+    }
     console.error("Countries API error:", error);
     return NextResponse.json(
       { error: "Failed to fetch countries" },

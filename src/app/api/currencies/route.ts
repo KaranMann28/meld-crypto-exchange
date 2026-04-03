@@ -4,6 +4,7 @@ import {
   getCryptoCurrencies,
   getPaymentMethods,
   getPurchaseLimits,
+  MeldAPIError,
 } from "@/lib/meld";
 
 export async function GET(request: Request) {
@@ -40,6 +41,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ fiat, crypto });
   } catch (error) {
+    if (error instanceof MeldAPIError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status >= 500 ? 502 : error.status },
+      );
+    }
     console.error("Currencies API error:", error);
     return NextResponse.json(
       { error: "Failed to fetch currencies" },

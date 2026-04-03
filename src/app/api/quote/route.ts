@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCryptoQuote } from "@/lib/meld";
+import { getCryptoQuote, MeldAPIError } from "@/lib/meld";
 import type { QuoteRequest } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
       !body.sourceAmount
     ) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: countryCode, sourceCurrencyCode, destinationCurrencyCode, sourceAmount" },
         { status: 400 },
       );
     }
@@ -31,6 +31,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json(quotes);
   } catch (error) {
+    if (error instanceof MeldAPIError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status >= 500 ? 502 : error.status },
+      );
+    }
     console.error("Quote API error:", error);
     return NextResponse.json(
       { error: "Failed to fetch quotes" },
