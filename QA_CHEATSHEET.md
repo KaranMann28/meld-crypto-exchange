@@ -1,8 +1,9 @@
 # Q&A Cheat Sheet -- 25 Minutes with Rafael
 
 > Pull this up on a second screen or phone during the Q&A.
-> Focus areas: **Technical Translation** + **Rapport Building**
-> Rule: Every answer should be under 60 seconds. Don't monologue.
+> Focus areas: **Technical Translation** + **Rapport Building** + **Clarity**
+>
+> **Clarity rule for Q&A:** Structure every answer as: **(1) direct answer first, (2) one supporting detail, (3) stop.** Under 60 seconds. Don't monologue. If the answer has multiple parts, say the count first: "Two reasons..." or "Three layers..."
 
 ---
 
