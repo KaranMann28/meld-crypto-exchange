@@ -128,8 +128,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Default to 1.5 Flash — widely enabled on AI Studio keys; override with GEMINI_MODEL (e.g. gemini-2.0-flash).
-    const modelName = process.env.GEMINI_MODEL?.trim() || "gemini-1.5-flash";
+    // Stable fast model per https://ai.google.dev/gemini-api/docs/models — override with GEMINI_MODEL if needed.
+    const modelName = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: modelName,
