@@ -1,183 +1,258 @@
 # Meld Crypto Exchange -- 20-Minute Presentation Script
 
-> For Geotab Senior Solutions Engineer interview with Rafael.
+> Coordinated with the slide deck at meld-crypto-exchange.vercel.app/slides
 > Live demo: https://meld-crypto-exchange.vercel.app
 > GitHub: https://github.com/KaranMann28/meld-crypto-exchange
+>
+> **Rafael is evaluating:** Technical Translation, Rapport Building, Clarity
+> **Mindset:** Make crypto feel as natural as booking a flight. Never lecture -- converse.
 
 ---
 
 ## SLIDE 1 -- Title (0:00 - 0:30)
 
-> Hi Rafael, I'm Kam. Thanks for having me.
+**On screen:** "Meld Crypto Exchange" + subtitle + your name
+
+> Hi Rafael, thanks for having me. I'm Kam.
 >
-> I built a full-stack crypto exchange in about a week using a fintech API I had never touched before. I'm going to walk you through what it does, how I built it, what broke along the way, and what I learned. And I'll do a live demo of the actual deployed app.
+> I'm going to walk you through a project where I took a fintech API I'd never seen before and built a full crypto exchange from scratch -- in about a week. I'll show you what it does, do a live demo of the deployed app, and then talk about what broke and what I learned.
+
+**[Technical Translation]** Set the frame immediately: this is a "learn fast, ship fast" story, not a crypto lecture.
+**[Rapport]** Use his name once. Warm, confident tone. No filler words.
 
 ---
 
 ## SLIDE 2 -- The Problem (0:30 - 2:00)
 
-> So here's the problem. Let's say you want to buy $100 worth of Bitcoin.
+**On screen:** "Buying crypto is fragmented" + 3 bullets + Kayak callout
+
+> So here's the problem I was solving.
 >
-> You could go to Coinbase, or Transak, or MoonPay, or a dozen other services. Each one charges different fees. Each one supports different countries. Each one accepts different payment methods -- Visa here, Apple Pay there, bank transfer only in Europe.
+> Let's say you want to buy $100 worth of Bitcoin. You could go to Coinbase. Or Transak. Or MoonPay. Or a dozen other services. Each one charges different fees, supports different countries, accepts different payment methods.
 >
 > So how do you know which one gives you the most Bitcoin for your hundred dollars?
 >
-> It's actually a lot like booking a flight. You don't go to American Airlines, then Delta, then United, then Southwest -- you go to Kayak. One search, every airline, best price.
+> *[pause -- let the question land]*
 >
-> That's exactly the problem I solved, but for crypto.
+> It's actually a lot like booking a flight. You don't go to American Airlines, then Delta, then United, then Southwest one by one. You go to Kayak. One search, every airline, best price.
+>
+> That's the problem I solved -- but for crypto.
+
+**[Technical Translation]** The Kayak analogy is the anchor. If Rafael remembers one thing, it's this.
+**[Rapport]** The pause after the question invites Rafael to think "yeah, that would be annoying." That's engagement.
 
 ---
 
 ## SLIDE 3 -- What Meld Does (2:00 - 3:30)
 
+**On screen:** "Meld = Kayak for crypto" + 3 bullets + reliability callout
+
 > The platform I built on top of is called Meld. Meld is essentially the Kayak of crypto.
 >
-> You make one API call with "I want to buy $200 of Ethereum in the United States with a credit card." Meld fans that request out to 50+ providers simultaneously and returns quotes from each one.
+> You make one API call -- "I want to buy $200 of Ethereum in the US with a credit card" -- and Meld sends that to 50+ providers at once and brings back quotes from each one.
 >
-> But here's the interesting part -- they don't just sort by cheapest price. They use something called rampScore, which is a reliability rating. It predicts which provider will actually complete the transaction successfully, based on historical conversion rates, regional compatibility, and real-time provider health.
+> But here's the clever part. They don't just sort by cheapest price. They use something called rampScore -- think of it as a reliability rating. It predicts which provider will actually complete the transaction, based on track record, regional compatibility, and real-time health.
 >
-> Think of it this way: the cheapest flight doesn't help if the airline cancels half its routes. rampScore is about which provider actually delivers.
+> *[look at Rafael]* Because the cheapest flight means nothing if the airline cancels half its routes, right?
+
+**[Technical Translation]** rampScore = "reliability rating." Three words. Done.
+**[Rapport]** End with a rhetorical question that invites a nod or smile.
 
 ---
 
 ## SLIDE 4 -- What I Built (3:30 - 5:00)
 
-> Given just API documentation and zero prior crypto experience, I built a complete exchange application. Users can:
+**On screen:** "Full exchange in < 1 week" + 5 bullets
+
+> So given just the API documentation and zero prior crypto experience, here's what I built.
 >
-> - Pick their country and currency
-> - Choose which cryptocurrency they want to buy
-> - Get live quotes from multiple providers ranked by that rampScore
-> - See a full fee breakdown -- network fees, provider fees, partner fees -- totally transparent
-> - Complete the purchase through the provider's payment flow
-> - And track the transaction status via webhooks
+> A complete exchange where users can pick their country, choose a cryptocurrency, get live quotes from multiple providers ranked by that reliability score, see a full fee breakdown -- and complete a purchase.
 >
-> I also built the reverse flow -- you can sell crypto back to fiat currency using the same swap interface.
+> I also built the reverse. You can sell crypto back to regular currency using the same interface -- there's a swap button that flips the direction.
 >
-> The whole thing went from reading docs to deployed production app in under a week. Let me show you.
+> The whole thing went from reading docs to a live, deployed app in under a week.
+>
+> Let me show you.
+
+**[Technical Translation]** "Regular currency" instead of "fiat." Keep it human.
+**[Rapport]** "Let me show you" creates anticipation. Transition naturally to the demo.
 
 ---
 
-## SLIDE 5 -- LIVE DEMO (5:00 - 10:00)
+## SLIDE 5 -- Live Demo (5:00 - 10:00)
 
-> *[Switch to browser -- open https://meld-crypto-exchange.vercel.app]*
+**On screen:** "meld-crypto-exchange.vercel.app" + demo steps
+
+> *[Switch to browser tab with the live app open. Have it pre-loaded.]*
+
+**Step 1 -- The Interface (30 sec)**
+> So this is the live app. It's deployed on Vercel -- this isn't localhost, it's production.
 >
-> So this is the live app, deployed on Vercel. Let me walk you through it.
-
-**Step 1: The Interface**
-> You'll notice it's a single-card exchange design -- inspired by apps like Uniswap and Phantom Wallet. Dark mode by default, but there's a light mode toggle up here. The animated background adds some visual depth without being distracting.
+> You'll notice it's a single-card design -- inspired by apps like Uniswap, which is the most popular crypto exchange. Dark mode by default, but there's a light mode toggle up here.
 >
-> Up in the corner you can see the green dot -- that's a live health check confirming the Meld sandbox API is connected and responding.
+> And see that green dot? That's a live health check -- it's confirming the Meld API is connected right now.
 
-**Step 2: Amount Input**
-> I'll type 200 here. Notice it validates the amount in real-time against Meld's purchase limits. If I try to type 5 -- *[type 5]* -- it would show me the minimum is $20.
+**Step 2 -- Amount + Validation (30 sec)**
+> I'll type 200. Notice it accepted that -- but if I type 5... *[type 5]* ...it tells me the minimum is $20. That's validating against Meld's actual purchase limits in real-time.
 >
 > *[Change back to 200]*
 
-**Step 3: Get Quotes**
+**Step 3 -- Get Quotes (60 sec)**
 > Now I'll hit Get Quotes.
 >
-> *[Click button, wait for quotes]*
+> *[Click, wait for results]*
 >
-> There we go -- two providers came back. You can see this one gives me slightly more Bitcoin than the other. Same $200, different amounts. The app ranks them by that rampScore I mentioned -- and it shows the percentage difference. So I can immediately see which provider gives me the best deal.
+> Two providers came back. This one gives me slightly more Bitcoin than that one -- same $200, different amounts. And the app shows me the percentage difference automatically, so I can see at a glance which is the better deal.
 >
-> Each card shows the fee breakdown: total fee, network fee, provider fee, partner fee. Full transparency.
+> Each card breaks down the fees: total fee, network fee, provider fee, partner fee. Full transparency. No hidden costs.
 
-**Step 4: Swap Direction**
-> Now watch this -- *[click the swap arrow]*
+**Step 4 -- Swap Arrow (30 sec)**
+> Now watch this. *[click the swap arrow]*
 >
-> I just flipped from Buy to Sell mode. The button changes from purple to orange, the labels switch to "You sell" and "You receive," and if I get quotes here, it'll show me how much USD I'd get for selling a specific amount of Bitcoin.
+> I just flipped from Buy to Sell. The button changes color, the labels switch, and now I can type how much Bitcoin I want to sell and see how much cash I'd get back.
 >
-> Same API, reversed direction. The code swaps source and destination currencies and changes the session type.
+> Same API, reversed direction. One line of code changes the transaction type.
 
-**Step 5: Settings**
-> *[Click gear icon]*
+**Step 5 -- Settings (30 sec)**
+> *[click gear icon]*
 >
-> Behind this gear icon is the settings panel. Country selector with flag icons for 228 countries. Fiat currency -- 50 options. Payment methods with descriptions -- Card, Apple Pay, Google Pay, SEPA for Europe, PIX for Brazil.
->
-> *[Close settings]*
+> Behind this gear icon -- country selector with flags for 228 countries. Fifty fiat currencies. Payment methods with icons and descriptions -- Card, Apple Pay, Google Pay, bank transfers for different regions.
 
-**Step 6: Token Selector**
-> *[Click crypto token button]*
+**Step 6 -- Token Selector + Features (30 sec)**
+> *[click token button]*
 >
-> The token selector has a search bar and the sandbox-supported tokens pinned at the top with green badges. There are 200+ tokens here from the API, but only BTC, ETH, and USDC actually work in sandbox -- so I surfaced those first.
+> Token selector with search. The green badges mark which tokens work in sandbox mode. And down here -- *[point to wallet field]* -- "Use test address" auto-fills a safe wallet for testing.
+
+**Rapport Moment (30 sec)**
+> *[Look at Rafael]*
 >
-> *[Close selector]*
+> Rafael, have you ever had to compare pricing across multiple vendors for anything? Maybe SaaS tools, or hardware quotes, or even insurance?
+>
+> *[Let him answer briefly]*
+>
+> That comparison experience is exactly what this does. Just applied to crypto providers instead.
 
-**Step 7: Quick Features**
-> Two more things -- "Use test address" auto-fills a sandbox-safe wallet so testers don't have to find one. And down here, the chat widget has a built-in FAQ bot for common questions about fees, tokens, and the sandbox.
-
-> Rafael, have you ever had to compare pricing across multiple vendors or providers for anything -- maybe SaaS tools, or even fleet hardware? That comparison experience is exactly what this does, just for crypto.
+**[Technical Translation]** Every feature is shown through what it does for the user, not how it works technically.
+**[Rapport]** Asking Rafael a real question makes this a conversation, not a presentation. The Docebo panel praised this exact technique.
 
 ---
 
 ## SLIDE 6 -- How I Built It (10:00 - 13:00)
 
-> Let me show you what's under the hood. Three layers.
+**On screen:** Three-column card layout: Frontend / Backend / Meld Client
+
+> *[Switch back to slides]*
 >
-> **Frontend** -- React with Next.js 16. Every component you just saw -- the exchange card, the token selector, the animated swap arrow, the settings dialog, the provider cards -- those are all custom React components. I used Framer Motion for the animations and shadcn/ui for the base design system.
+> Under the hood, three layers.
 >
-> **Backend** -- 8 API routes that act as a proxy layer. Every call to Meld goes through my server, not the browser. This means the API key is never exposed to the client. Static data like countries and currencies is cached for a week -- that's actually Meld's own recommendation in their docs. But quotes are always fetched fresh because crypto prices change every second.
+> **Frontend** -- React with Next.js. Every component you just saw is custom -- the exchange card, the token selector, the animated swap arrow, the provider cards. Twelve components total. I used Framer Motion for the animations.
 >
-> **The Meld Client** -- This is a single TypeScript file called meld.ts. It wraps every HTTP call to Meld with proper authentication, API versioning headers, error handling, and retry logic. If Meld's server returns a 500, it waits one second and tries again before failing. If it returns a 401, it tells the user "Invalid API key" -- not just "something went wrong."
+> **Backend** -- Eight API routes that act as a proxy. Every call to Meld goes through my server, not the browser. That means the API key is never exposed. Static data like countries and currencies is cached for a week -- that's actually Meld's own recommendation. But quotes are always fresh because prices change every second.
 >
-> I designed the whole thing so that if you handed this codebase to another developer, they could clone the repo, copy the environment template, and have it running in five minutes. That's not just code quality -- that's developer empathy. And for a Dev Support role, that matters.
+> **The Meld Client** -- This is a single file that wraps all the HTTP calls with authentication, error handling, and retry logic. If Meld's server is down, it waits a second and tries again. If the API key is wrong, it tells the user "Invalid API key" -- not "something went wrong."
+>
+> *[pause]*
+>
+> I designed it so that another developer could clone the repo, copy the environment template, and have it running in five minutes. That's not just clean code -- that's empathy for the next person who touches it.
+
+**[Technical Translation]** "Proxy" = "goes through my server." "Cache" = "saved for a week." "Retry" = "waits and tries again." Every technical term is immediately followed by plain English.
+**[Rapport]** "Empathy for the next person" -- this signals SE mindset, not just developer skill.
 
 ---
 
 ## SLIDE 7 -- What Broke (13:00 - 16:00)
 
-> Now, this wouldn't be an honest presentation if I only showed you what works. Let me tell you what broke.
+**On screen:** Three problem->fix cards with red->green format
+
+> This wouldn't be honest if I only showed you what works. Let me tell you what broke.
 >
-> **First: the docs didn't match reality.** The Meld documentation shows example responses with field names like countryName and currencyName. But the actual API returns just name for both. And instead of networkCode and networkName, it's chainCode and chainName. I only discovered this by inspecting real API responses, not by reading the docs. Lesson: always verify against the live API.
+> **First.** The documentation showed field names like "countryName." The actual API returned just "name." Same data, different label. I only caught this by looking at real responses, not by trusting the docs. Lesson: always verify against the live system.
 >
-> **Second: 200 tokens, only 3 work in sandbox.** The API returns every cryptocurrency Meld supports globally -- over 200 tokens. But the sandbox environment only supports Bitcoin, Ethereum, and USDC. So if a user selected Dogecoin, they'd get zero quotes and think the app was broken. I fixed this by pinning the sandbox tokens to the top of the list with a green "Sandbox" badge, so users naturally pick the ones that work.
+> **Second.** The API returned over 200 cryptocurrency tokens. But the sandbox only supports three -- Bitcoin, Ethereum, and USDC. So if someone picked Dogecoin, they'd get zero results and think the app was broken. I fixed it by pinning the working tokens to the top with a green badge.
 >
-> **Third: a subtle timing bug.** I built auto-quoting -- when you type an amount, it waits 800 milliseconds after you stop typing and then fetches quotes automatically. But there was a bug: the debounce function was capturing an old validation state because of how JavaScript closures work. The amount would be valid, but the closure was still seeing the error from the previous keystroke. I fixed it by returning the validation result as a boolean at the moment of capture, instead of reading state inside the delayed function.
+> **Third.** I built auto-quoting -- type an amount, and quotes refresh automatically after you stop typing. But there was a subtle timing bug. The function was looking at an error state from 800 milliseconds ago because of how JavaScript handles delayed execution. The value had already changed, but the function was still seeing the old one. I fixed it by capturing the result at the right moment instead of reading it later.
 >
-> Every one of these bugs taught me something I couldn't have learned from a tutorial. Debugging against a real API, with real data, in a real integration -- that's where understanding happens.
+> *[pause]*
+>
+> Every one of these taught me something I couldn't learn from a tutorial. Debugging against a real API, with real data -- that's where real understanding happens.
+
+**[Technical Translation]** The closure bug is explained without saying "closure." "Delayed execution" + "seeing the old value" is enough. Rafael doesn't need the CS term -- he needs to understand the concept.
+**[Rapport]** Vulnerability builds trust. Showing what broke proves you're not performing -- you're sharing real experience.
 
 ---
 
 ## SLIDE 8 -- What I'd Improve (16:00 - 18:00)
 
-> If I had more time, here's what I'd add:
+**On screen:** Three improvement bullets + callout
+
+> If I had more time, three things:
 >
-> **Persistent storage.** Right now, webhook events from Meld are stored in memory. If the server restarts, that data is gone. In production, I'd use a database.
+> **One** -- right now, transaction data lives in memory. If the server restarts, it's gone. In production, that needs a database.
 >
-> **Webhook signature verification.** I scaffolded the function and left a reference to Meld's authentication docs, but I didn't implement the full HMAC validation. In production, you need to verify that incoming webhooks actually came from Meld and weren't spoofed.
+> **Two** -- I built the function for verifying incoming webhook messages, but I didn't implement the full cryptographic check. In production, you need to confirm those messages actually came from Meld.
 >
-> **Real-time updates.** Instead of the user manually looking up a transaction ID, WebSockets could push status changes to the browser the moment they happen.
+> **Three** -- instead of the user manually looking up a transaction, the app should push updates in real-time the moment something changes.
 >
-> I think the ability to identify what you'd do differently is just as important as what you shipped. It shows you're thinking beyond the demo and toward production.
+> I think the ability to identify what you'd do differently is just as important as what you shipped. It shows you're thinking beyond the demo.
+
+**[Technical Translation]** "Cryptographic check" instead of "HMAC validation." "Push updates in real-time" instead of "WebSocket integration."
+**[Rapport]** The closing line is a values statement. Rafael will remember it.
 
 ---
 
 ## SLIDE 9 -- Key Takeaways (18:00 - 19:30)
 
-> Three takeaways from this project:
+**On screen:** Three numbered takeaways with detail text
+
+> Three takeaways:
 >
-> **One: Aggregation beats single-provider.** One integration, global coverage. This pattern isn't unique to crypto -- it applies anywhere you're connecting multiple data sources or service providers through a single API.
+> **One -- Aggregation beats single-provider.** One integration, global coverage. This isn't just a crypto pattern -- it applies anywhere you're connecting multiple data sources through a single platform.
 >
-> **Two: Scoring turns raw data into decisions.** rampScore takes complex multi-factor data and outputs a simple ranking that any user can act on. They don't need to understand the algorithm -- they just pick the top result. That's powerful product design.
+> **Two -- Scoring turns raw data into decisions.** rampScore takes complex signals and outputs a simple ranking anyone can act on. Users don't need to understand the algorithm. They just pick the top result.
 >
-> **Three: The best integrations are invisible.** The user sees a clean exchange. They don't see 8 API routes, a caching layer, retry logic, or webhook handlers running behind it. And that's the point. Good infrastructure disappears.
+> **Three -- The best integrations are invisible.** The user sees a clean exchange. They don't see eight API routes, a caching layer, retry logic, or webhook handlers. That's the point. Good infrastructure disappears.
+
+**[Technical Translation]** Each takeaway is deliberately universal, not crypto-specific. Rafael should leave thinking "this person can translate anything."
+**[Rapport]** Speak these slowly. Let each one land before moving to the next.
 
 ---
 
 ## SLIDE 10 -- Close (19:30 - 20:00)
 
-> That's the Meld Crypto Exchange. I went from zero crypto experience to a deployed, production-aware integration in under a week.
+**On screen:** "Questions?" + links + your name
+
+> That's the Meld Crypto Exchange. I went from zero crypto experience to a deployed, production-aware application in under a week.
 >
-> The app is live at meld-crypto-exchange.vercel.app, and the code is on GitHub if you'd like to look through it.
+> The app is live -- I'll drop the link in the chat. The code is on GitHub if you'd like to look through it.
 >
 > I'd love to hear your thoughts and answer any questions.
 
+**[Rapport]** Smile. Don't rush the ending. Let silence be comfortable.
+
 ---
 
-## Delivery Notes
+## Delivery Cheat Sheet
 
-- **Pace:** ~130 words per minute. Practice the demo section especially -- it's the longest and most improvised part.
-- **Eye contact:** Look at camera, not at the app during demo. Glance at the app to click, then look back.
-- **If the demo breaks:** "This is sandbox -- it does this sometimes. Let me show you the code instead." Switch to GitHub README.
-- **If you're running long:** Cut Slide 8 (Improvements) down to one sentence: "I documented three improvements in the README -- persistent storage, webhook verification, and real-time push."
-- **If you're running short:** Expand the demo. Show the transaction tracker page. Show the health endpoint in a new tab.
+| If this happens... | Do this... |
+|---|---|
+| Demo won't load | "This is sandbox -- let me show you the architecture slide instead." Switch to slide 6. |
+| Running long at 15 min | Cut Slide 8 to one sentence: "I documented three improvements in the README." |
+| Running short at 17 min | Expand demo: show Transactions page, show /api/health in a new tab. |
+| Rafael asks a question mid-slide | Answer it. Don't say "I'll get to that." Flexibility > structure. |
+| Awkward silence after your answer | That's fine. Don't fill it. Smile and wait. |
+| You don't know the answer | "Great question. I'd rather give you an accurate answer than guess -- can I follow up?" |
+
+## Timing Summary
+
+| Slide | Topic | Duration | Cumulative |
+|-------|-------|----------|------------|
+| 1 | Title | 0:30 | 0:30 |
+| 2 | Problem | 1:30 | 2:00 |
+| 3 | Meld Solution | 1:30 | 3:30 |
+| 4 | What I Built | 1:30 | 5:00 |
+| 5 | **LIVE DEMO** | **5:00** | **10:00** |
+| 6 | Architecture | 3:00 | 13:00 |
+| 7 | What Broke | 3:00 | 16:00 |
+| 8 | Improvements | 2:00 | 18:00 |
+| 9 | Takeaways | 1:30 | 19:30 |
+| 10 | Close | 0:30 | 20:00 |

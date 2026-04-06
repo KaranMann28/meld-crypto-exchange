@@ -1,82 +1,97 @@
-# Q&A Cheat Sheet -- Geotab Interview with Rafael
+# Q&A Cheat Sheet -- 25 Minutes with Rafael
 
-> Keep this on a second screen or phone. 25 minutes of Q&A after the presentation.
-
----
-
-## About the Project
-
-**Q: Why did you choose this project?**
-> I was given this as a technical exercise for a fintech role, and I saw a chance to go way beyond the minimum. The assignment asked for a basic API integration -- I built a full exchange with buy/sell flows, animated UI, and a chat widget. I chose it for this presentation because it shows exactly what an SE does: take something complex, make it accessible, and demo it live.
-
-**Q: How long did this take?**
-> About 5 days from first reading the docs to deployed app. Day 1 was understanding the API and getting a basic integration working. Day 2-3 was building the full flow. Day 4 was the UI redesign to match Uniswap-level patterns. Day 5 was backend hardening and polish.
-
-**Q: What would you do differently if you started over?**
-> I'd design the UI first, not the API integration. I built the backend first and ended up redesigning the frontend twice because the layout didn't feel right. A quick wireframe of the exchange card would have saved a full day.
+> Pull this up on a second screen or phone during the Q&A.
+> Focus areas: **Technical Translation** + **Rapport Building**
+> Rule: Every answer should be under 60 seconds. Don't monologue.
 
 ---
 
-## Technical Depth
+## ABOUT THE PROJECT
+
+**Q: Why did you choose this project to present?**
+> I was given this as a technical exercise -- the assignment asked for a basic API integration. I went way beyond the minimum because I wanted to show what an SE actually does: take something complex, make it look simple, and demo it live. The fact that I'd never worked with crypto before made it an even better test of how quickly I can learn and translate.
+
+**Q: How long did it take?**
+> About five days. Day one was understanding the API and getting basic calls working. Days two and three were building the full integration. Day four was the UI redesign -- I rebuilt the frontend to match the patterns top exchanges use. Day five was hardening the backend and writing documentation.
+
+**Q: What would you do differently?**
+> Design the UI first. I built the backend first and had to redesign the frontend twice because the layout didn't match the user's mental model. A quick wireframe of the exchange card would have saved a full day.
 
 **Q: Walk me through the architecture.**
-> Three layers. The frontend is React/Next.js with custom components -- the exchange card, token selector, settings dialog, provider cards. The backend is 8 API routes that proxy every call to Meld so the API key never touches the browser. And there's a shared library layer with the Meld HTTP client that handles auth, caching, retry on server errors, and typed error messages. Static data is cached for a week per Meld's recommendation. Quotes are always fetched fresh.
-
-**Q: How does the API key stay secure?**
-> It's a server-only environment variable. All Meld calls go through Next.js API routes, which run on the server. The browser never sees the key. The `.env.local` file is in `.gitignore`, and there's a `.env.example` with placeholder values for onboarding.
-
-**Q: What's rampScore?**
-> Meld's conversion-likelihood algorithm. Instead of sorting by cheapest price, it factors in historical success rates, regional compatibility, payment method fit, and real-time provider health. The cheapest provider might complete 40% of transactions in a region. The slightly more expensive one completes 95%. rampScore surfaces the one that actually works.
-
-**Q: How do webhooks work in this?**
-> When a user completes a purchase through the provider widget, Meld sends HTTP POST events to my `/api/webhook` endpoint. Events include PENDING, SETTLING, SETTLED, and FAILED. I store each event in memory, deduplicate by event ID to prevent double-processing, and enrich the transaction by fetching full details from Meld. The user can then look up their transaction on the Transactions page.
-
-**Q: Tell me about the caching strategy.**
-> Meld's own docs have a caching guide that recommends caching countries, currencies, payment methods, and limits for one week since they rarely change. I implemented a TTL-based Map cache in the API client -- each static endpoint gets a cache key, and if the data is less than 7 days old, it's returned from memory. Quotes, sessions, and transactions are never cached because prices change every second.
-
-**Q: How does the retry logic work?**
-> If Meld's server returns a 5xx error, the client waits one second and retries once before throwing. It's a simple pattern -- not exponential backoff, because one retry catches transient failures without adding complexity. If it fails twice, it surfaces a human-readable error to the user: "Meld service unavailable -- please try again later."
+> Three layers. The frontend is React -- twelve custom components for the exchange card, token selector, settings, provider cards. The backend is eight API routes that proxy every call to Meld so the API key stays on the server. And there's a shared library with the HTTP client that handles authentication, caching, error messages, and retry logic. Static data is cached for a week. Quotes are always fresh.
 
 ---
 
-## Debugging & Problem-Solving
-
-**Q: Tell me about the hardest bug you fixed.**
-> The debounce closure bug. I built auto-quoting: type an amount, and after 800ms it fetches quotes. But JavaScript closures capture variable values at the time the function is created, not when it executes. So my debounced function was checking an error state from 800ms ago. If the user corrected an invalid amount, the closure still saw the old error and skipped the fetch. I fixed it by having `validateAmount()` return a boolean at call time and passing that directly into the closure.
-
-**Q: How did you discover the field name mismatches?**
-> I made my first API call and the data didn't render. The TypeScript types I wrote from the docs expected `countryName`, but the response had `name`. I opened the browser network tab, compared the actual JSON to the docs, and found four mismatches: `name` vs `countryName`, `name` vs `currencyName`, `chainCode`/`chainName` vs `networkCode`/`networkName`, and `symbolImageUrl` which wasn't in the docs at all. I updated my types to accept both variants as optional fields.
-
-**Q: How do you approach learning a new API?**
-> Start with the quickstart, get something working in 30 minutes. Then go back and read the full docs section by section. The Meld quickstart had me making API calls in 20 minutes. Then I read the caching guide and added TTL caching. Then the webhook docs and built the event handler. Then the Ramp Intelligence page and understood rampScore. Iterative depth, not all-at-once.
-
----
-
-## About You / The Role
+## TECHNICAL TRANSLATION
 
 **Q: How do you explain technical concepts to non-technical people?**
-> Analogies. Every technical concept has a real-world equivalent. rampScore is a reliability rating. On-ramp is exchanging currency at an airport. API caching is like keeping a phone book instead of calling directory assistance every time. Webhooks are push notifications. If the analogy lands, the technical depth follows naturally.
+> Analogies. Every technical concept has something people already understand. rampScore is a reliability rating. On-ramp is like exchanging currency at an airport. API caching is keeping a phone book instead of calling directory assistance every time. Webhooks are push notifications. If the analogy clicks, the technical depth follows naturally.
 
-**Q: What interests you about Geotab?**
-> The pattern is identical to what I just showed you. Geotab aggregates data from thousands of vehicles through one platform, ranks it with scoring algorithms like the Driver Safety Score, and exposes it through an open API and marketplace for partners. Meld does the same for crypto providers. I find that aggregation-plus-intelligence pattern genuinely fascinating, and the Solutions Engineering role is where I get to translate that depth for customers who need to understand it.
+**Q: What's rampScore in simple terms?**
+> It's a reliability rating for crypto providers. Instead of just showing the cheapest option, Meld predicts which provider will actually complete the transaction -- based on track record, regional fit, and real-time health. The cheapest option might fail 60% of the time. A slightly pricier one completes 95% of the time. rampScore tells you which one actually works.
 
-**Q: What's your experience with demos?**
-> At ScalePad, I deliver 6-8 product demos per day across five SaaS products to 800+ MSPs. I was recognized twice as top-performing SE for close rates. Before that, at Deloitte, I delivered technical demos to groups of 50+ for GCP adoption. The key is storytelling -- don't show features, show outcomes. "Here's what this means for you" beats "here's what this button does" every time.
+**Q: What's an on-ramp / off-ramp?**
+> On-ramp is turning regular money into crypto -- like exchanging dollars for euros at the airport, but for Bitcoin. Off-ramp is the reverse -- turning crypto back into regular money you can spend.
 
-**Q: How do you handle a demo that breaks live?**
-> It happened during a Docebo interview. The AI chatbot took longer than expected to respond, and I acknowledged it openly: "This is a great example of why sandbox testing has limitations." The panel specifically praised me for not faking confidence. Transparency builds more trust than perfection.
+**Q: What's a webhook?**
+> It's a push notification for servers. Instead of my app checking "is the transaction done yet?" every five seconds, Meld sends my app a message the moment something changes. More efficient, more real-time.
 
-**Q: What do you know about Geotab's products?**
-> Geotab is the global leader in IoT and connected transportation. The GO device collects vehicle data -- GPS, engine diagnostics, driver behavior -- and the MyGeotab platform turns that into actionable insights. The Driver Safety Scorecard ranks drivers 0-100 based on braking, speeding, seatbelt use. The open API and Marketplace let partners build custom fleet solutions. I actually signed up for a MyGeotab demo database to explore the platform before this conversation.
-
-**Q: Where do you see yourself growing in this role?**
-> Short term: mastering Geotab's platform and becoming the technical trusted advisor for partners and end-users. Medium term: building tools and educational content that help the broader partner ecosystem succeed -- the docs, the demos, the enablement. Long term: mentoring other SEs and driving the strategy for how Geotab's solutions are positioned technically in the market.
+**Q: Why is the API key on the server, not the browser?**
+> If the key was in the browser, anyone could open developer tools, copy it, and use it. By keeping it on the server and proxying every call, the key is never visible to the user. It's a basic security pattern but critical for fintech.
 
 ---
 
-## If You Get Stuck
+## DEBUGGING & PROBLEM-SOLVING
 
-- **Don't know the answer:** "That's a great question, and I want to give you an accurate answer rather than guess. Can I follow up on that after I dig into it?"
-- **Too technical for the audience:** "Let me zoom out -- the key thing is [simple version]."
-- **Question about something you haven't built:** "I haven't implemented that yet, but here's how I'd approach it: [framework]."
-- **Silence after your answer:** That's okay. Don't fill silence with rambling. Smile and wait.
+**Q: What was the hardest bug?**
+> The auto-quote timing issue. When you type an amount, the app waits 800 milliseconds before fetching quotes. But the delayed function was looking at an old validation state -- it was seeing "invalid" even though the user had already corrected the amount. The fix was capturing the validation result at the moment of typing, not reading it 800ms later. It's the kind of bug that only shows up with real user interaction, not in a unit test.
+
+**Q: How did you discover the API field name mismatches?**
+> I wrote my TypeScript types from the documentation, made my first API call, and nothing rendered. Opened the browser network tab, compared the actual JSON to the docs, and found four mismatches. The docs said countryName, the API returned name. Same for currencies and network codes. I updated my types to accept both variants so the app handles either.
+
+**Q: How do you approach learning a new API?**
+> Quickstart first -- get something working in 30 minutes. Then go back and read the full docs section by section. The Meld quickstart had me making API calls in twenty minutes. Then I read the caching guide and added a cache layer. Then the webhook docs and built the event handler. Then the Ramp Intelligence page and understood their scoring algorithm. Start shallow, go deep iteratively.
+
+---
+
+## ABOUT YOU & THE ROLE
+
+**Q: What interests you about Geotab?**
+> The pattern is the same. Geotab aggregates data from thousands of vehicles through one platform, scores it with algorithms like the Driver Safety Scorecard, and exposes it through an open API and marketplace. That's the same aggregation-plus-intelligence pattern I just showed you with crypto providers. I find that pattern genuinely interesting, and the Solutions Engineering role is where I get to help customers see the value in it.
+
+**Q: What's your demo experience?**
+> At ScalePad I deliver six to eight product demos a day across five products to MSPs. I was recognized twice as top-performing SE for close rates. At Deloitte I presented to groups of fifty-plus on GCP adoption. The key is storytelling -- don't show features, show outcomes. "Here's what this means for you" lands better than "here's what this button does."
+
+**Q: How do you handle a demo that breaks?**
+> It happened during a Docebo interview. The AI chatbot took longer than expected to respond. I said openly, "This is a sandbox -- it does this sometimes. It's actually a great example of why we test in staging before production." The panel specifically praised me for being transparent instead of faking it. Trust comes from honesty, not perfection.
+
+**Q: How do you build rapport with a technical audience?**
+> Ask questions, don't just present. During the demo I asked you about comparing prices across providers -- that's intentional. It connects what I'm showing to something you've experienced. People engage when they see themselves in the story. The other thing is vulnerability: showing what broke, admitting what I'd improve. That signals "I'm sharing real experience," not performing.
+
+**Q: Where do you see yourself in this role?**
+> Short term: mastering Geotab's platform and becoming the trusted technical advisor for partners. Medium term: building tools and content that help the whole partner ecosystem -- better docs, reusable demos, training materials. Long term: mentoring other SEs and shaping how Geotab's solutions are positioned in the market.
+
+---
+
+## CURVEBALL QUESTIONS
+
+**Q: What do you know about Geotab's technology?**
+> Geotab uses the GO device to collect vehicle data -- GPS, engine diagnostics, driver behavior -- and the MyGeotab platform turns that into dashboards, safety scores, and fleet optimization insights. The Driver Safety Scorecard weighs things like hard braking, speeding, and seatbelt use on a 0-100 scale. The open platform and Marketplace let partners build on top of it, similar to how Meld lets developers build on their API.
+
+**Q: How is what you built relevant to fleet management?**
+> The architecture is identical. Meld aggregates multiple crypto providers through one API. Geotab aggregates multiple vehicle sensors through one platform. Both use scoring algorithms to turn noisy data into simple decisions -- rampScore for providers, Safety Score for drivers. Both expose an open API for partners to build custom solutions. The domain is different, but the engineering pattern is the same.
+
+**Q: Can you explain something about this project that you'd explain differently to an engineer vs. a fleet manager?**
+> To an engineer: "The API client implements a TTL-based cache with a 7-day expiry for static endpoints and a single-retry with 1-second backoff for 5xx responses." To a fleet manager: "We save lookup data for a week so the app loads faster, and if the service hiccups, we automatically try again before showing an error." Same concept, different vocabulary. That translation is the whole job.
+
+---
+
+## IF YOU GET STUCK
+
+| Situation | Response |
+|---|---|
+| Don't know the answer | "Great question. I want to give you an accurate answer -- can I follow up after I look into it?" |
+| Question is too broad | "Let me focus on one specific aspect of that..." |
+| Question about something you didn't build | "I haven't implemented that yet, but here's how I'd approach it." |
+| Silence after your answer | Don't fill it. Smile, make eye contact, wait. Silence means they're thinking. |
+| Rafael redirects the topic | Follow his lead. Flexibility is a feature, not a bug. |
