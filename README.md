@@ -110,7 +110,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Optional — AI support widget (server-only; never NEXT_PUBLIC_)
 GEMINI_API_KEY=
-# GEMINI_MODEL=gemini-2.0-flash
+# GEMINI_MODEL=gemini-1.5-flash
 ```
 
 Security checklist: [SECURITY.md](./SECURITY.md)
