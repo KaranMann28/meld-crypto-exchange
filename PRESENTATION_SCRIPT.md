@@ -124,6 +124,16 @@
 >
 > Token selector with search. Green badges mark what works in sandbox. And "Use test address" auto-fills a wallet so testers don't have to find one.
 
+**Feature 7 -- Support Chat + Security (45 sec)**
+> *[Open the floating chat]*
+>
+> This is a real support-style chat. If I've configured a Gemini key **only on the server**, answers come from the model. The browser never sees that key — same pattern as Meld: proxy through Next.js. There's rate limiting so one IP can't burn my API quota in a demo.
+>
+> If the key isn't set, it degrades gracefully to a built-in FAQ so the demo never breaks.
+
+**Feature 8 -- Presenter Tools (20 sec)**
+> I added a **`/demo`** page — an ordered checklist so I'm not improvising which tab to open. **`/slides`** is the full deck if we want to jump back. **`/api/health`** is a raw JSON health check you can open in a tab to prove the sandbox is live.
+
 **Rapport Moment (30 sec)**
 > *[Look at Rafael]*
 >
@@ -133,7 +143,7 @@
 >
 > That comparison experience is exactly what this does -- just for crypto providers.
 
-**[Clarity]** Each demo feature is numbered and named ("Feature 1 -- The Interface"). This prevents the demo from feeling like aimless clicking. Rafael knows: there are 6 features, we're on number 3.
+**[Clarity]** Each demo feature is numbered and named ("Feature 1 -- The Interface"). This prevents the demo from feeling like aimless clicking. Rafael knows: there are 8 features, we're on number 3.
 **[Clarity]** "Now -- the core feature" flags the most important moment in the demo.
 
 ---
@@ -148,7 +158,7 @@
 >
 > **First -- Frontend.** React with Next.js. Twelve custom components: the exchange card, token selector, swap arrow, provider cards, settings dialog. Framer Motion for the animations.
 >
-> **Second -- Backend.** Eight API routes that proxy every call to Meld. The API key stays on the server -- never in the browser. Static data is cached for a week, which is Meld's own recommendation. Quotes are always fresh because prices change every second.
+> **Second -- Backend.** Nine API routes: eight for Meld, plus one for the support chat. Both the Meld key and the optional Gemini key stay on the server -- never in the browser, never as `NEXT_PUBLIC`. Static data is cached for a week, which is Meld's own recommendation. Quotes are always fresh because prices change every second. Chat has basic rate limits and a body size cap so it's harder to abuse in a public demo.
 >
 > **Third -- the Meld Client.** A single file that wraps all HTTP calls with authentication, error handling, and retry logic. If Meld's server goes down, it waits a second and tries again. If the API key is wrong, it tells the user specifically -- not "something went wrong."
 >
@@ -241,7 +251,7 @@ Rafael hears these explicit signposts throughout:
 | 0:30 | "Starting with the problem" | Section 1 begins |
 | 3:30 | "That's the problem and platform. Now -- what I built" | Transition to Section 2 |
 | 5:00 | "Let me show you the live app" | Demo start |
-| 5:15 | "Feature 1... Feature 2... Feature 3..." | Position within demo |
+| 5:15 | "Feature 1... through Feature 8..." | Position within demo |
 | 10:00 | "That was the what. Now the how" | Transition to Section 3 |
 | 10:15 | "First... Second... Third..." | Position within architecture |
 | 13:00 | "Now -- the honest part. Three things that broke" | Transition to Section 4 |
@@ -260,7 +270,7 @@ At **every moment**, Rafael knows where he is, what's coming next, and how far a
 |---|---|
 | Demo won't load | "This is sandbox -- let me show the architecture instead." Go to slide 6. |
 | Running long at 15 min | Cut Slide 8 to one sentence: "I documented three improvements in the README." |
-| Running short at 17 min | Expand demo: show Transactions page, show /api/health in a new tab. |
+| Running short at 17 min | Expand demo: `/demo` checklist, Transactions page, `/api/health` in a new tab, open support chat. |
 | Rafael asks mid-slide | Answer it immediately. Flexibility beats structure. |
 | Silence after your answer | Don't fill it. Smile. Wait. Silence means he's thinking. |
 | Don't know the answer | "Great question -- I'd rather be accurate than guess. Can I follow up?" |

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ApiStatus } from "@/components/api-status";
@@ -38,7 +39,7 @@ export default function RootLayout({
 
         <header className="border-b border-border/40 bg-background/60 backdrop-blur-xl sticky top-0 z-40">
           <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-            <a href="/" className="flex items-center gap-2.5 group">
+            <Link href="/" className="flex items-center gap-2.5 group">
               <div className="relative w-8 h-8">
                 <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 group-hover:from-violet-400 group-hover:to-indigo-500 transition-all" />
                 <div className="absolute inset-0 rounded-xl flex items-center justify-center">
@@ -55,22 +56,34 @@ export default function RootLayout({
                   Crypto On-Ramp
                 </span>
               </div>
-            </a>
+            </Link>
 
-            <nav className="flex items-center gap-1 text-sm">
-              <a
+            <nav className="flex items-center gap-1 text-sm flex-wrap justify-end">
+              <Link
                 href="/"
                 className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
-                Buy
-              </a>
-              <a
+                Exchange
+              </Link>
+              <Link
                 href="/transactions"
                 className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
                 Transactions
-              </a>
-              <div className="w-px h-5 bg-border/50 mx-1" />
+              </Link>
+              <Link
+                href="/demo"
+                className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                Demo
+              </Link>
+              <Link
+                href="/slides"
+                className="px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              >
+                Slides
+              </Link>
+              <div className="w-px h-5 bg-border/50 mx-1 hidden sm:block" />
               <ApiStatus />
               <ThemeToggle />
             </nav>

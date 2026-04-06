@@ -49,8 +49,9 @@ This app implements Meld's complete 7-step White-Label API flow:
 │                  │   /api/session         POST          │
 │   /transactions  │   /api/transaction/[id] GET          │
 │   (TX Tracker)   │   /api/transactions    GET           │
-│                  │   /api/webhook         POST          │
+│   /demo /slides  │   /api/webhook         POST          │
 │                  │   /api/health          GET           │
+│                  │   /api/chat            GET + POST     │
 ├──────────────────┴───────────────────────────────────┤
 │   /lib/meld.ts — API client, TTL cache, retry, errors │
 │   /lib/logger.ts — Structured request logging          │
@@ -62,7 +63,7 @@ This app implements Meld's complete 7-step White-Label API flow:
 
 ### Key Design Decisions
 
-- **API key never touches the browser.** All Meld calls proxy through Next.js API routes. The `MELD_API_KEY` env var is server-only.
+- **API keys never touch the browser.** All Meld calls proxy through Next.js API routes (`MELD_API_KEY` server-only). Optional **Gemini** support chat uses `GEMINI_API_KEY` only in `/api/chat` — the client calls your app, not Google directly. See [SECURITY.md](./SECURITY.md).
 - **Static data is cached server-side.** Countries, currencies, payment methods, and limits are cached with a 7-day TTL (per Meld's own recommendation in the "API Response Caching Guide").
 - **Quotes are never cached.** Always fetched fresh — crypto prices move every second.
 - **Quotes ranked by `rampScore`.** Meld's conversion-likelihood algorithm. Secondary sort: highest `destinationAmount` (most crypto for the user's money).
@@ -74,6 +75,7 @@ This app implements Meld's complete 7-step White-Label API flow:
 - **Structured logging.** Every API route logs `[timestamp][LEVEL][route] method status latencyMs — detail` via `src/lib/logger.ts` for consistent observability.
 - **Session validation.** The `/api/session` route validates all 7 required fields and returns specific missing field names — not cryptic Meld errors.
 - **Webhook security placeholder.** `verifyWebhookSignature()` is scaffolded with a reference to [Meld's webhook auth docs](https://docs.meld.io/docs/webhooks-authentication) for production HMAC verification.
+- **Support chat.** `POST /api/chat` sends prompts to Gemini with a sandbox-focused system prompt; `GET /api/chat` returns `{ aiEnabled }` without exposing secrets. Per-IP rate limiting and a body size cap reduce abuse (see `src/lib/rate-limit.ts`).
 
 ---
 
@@ -105,7 +107,13 @@ MELD_API_KEY=your_meld_sandbox_api_key
 MELD_API_BASE_URL=https://api-sb.meld.io
 MELD_API_VERSION=2026-02-03
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Optional — AI support widget (server-only; never NEXT_PUBLIC_)
+GEMINI_API_KEY=
+# GEMINI_MODEL=gemini-2.0-flash
 ```
+
+Security checklist: [SECURITY.md](./SECURITY.md)
 
 Start:
 
@@ -183,7 +191,7 @@ The auto-quote debounce initially checked `amountError` inside the `setTimeout` 
 4. **Transfer flow** — Support exchange-to-wallet transfers using Meld's transfer API
 5. **Quote auto-refresh timer** — Visual countdown + auto-refetch every 30s since crypto prices are volatile
 6. **Webhook signature verification** — Validate incoming webhook authenticity using [Meld's HMAC signing](https://docs.meld.io/docs/webhooks-authentication)
-7. **Rate limiting** — Protect API routes from abuse with per-IP throttling via Vercel middleware
+7. **Extend rate limiting** — Chat is throttled in-process; extend to Vercel KV / Redis for all routes at scale
 8. **Multi-wallet support** — Save and select from multiple wallet addresses per token type, validated by chain
 9. **Error retry with exponential backoff** — Resilient API calls with jitter for production reliability
 10. **Ramp Intelligence deep integration** — Leverage Meld's [conversion routing](https://docs.meld.io/docs/ramp-intelligence) API to pre-filter providers by `lowKyc` thresholds, reducing friction for small purchases

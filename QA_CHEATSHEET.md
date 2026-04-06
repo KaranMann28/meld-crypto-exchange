@@ -19,7 +19,7 @@
 > Design the UI first. I built the backend first and had to redesign the frontend twice because the layout didn't match the user's mental model. A quick wireframe of the exchange card would have saved a full day.
 
 **Q: Walk me through the architecture.**
-> Three layers. The frontend is React -- twelve custom components for the exchange card, token selector, settings, provider cards. The backend is eight API routes that proxy every call to Meld so the API key stays on the server. And there's a shared library with the HTTP client that handles authentication, caching, error messages, and retry logic. Static data is cached for a week. Quotes are always fresh.
+> Three layers. The frontend is React -- twelve custom components for the exchange card, token selector, settings, provider cards. The backend is nine API routes: eight proxy Meld, one powers the optional support chat. Meld and Gemini keys stay on the server only -- never `NEXT_PUBLIC`, never the browser bundle. Shared library: HTTP client, caching, errors, retry, plus in-memory rate limiting on chat. Static data is cached for a week. Quotes are always fresh.
 
 ---
 
@@ -39,6 +39,12 @@
 
 **Q: Why is the API key on the server, not the browser?**
 > If the key was in the browser, anyone could open developer tools, copy it, and use it. By keeping it on the server and proxying every call, the key is never visible to the user. It's a basic security pattern but critical for fintech.
+
+**Q: How does the AI chat stay secure?**
+> Three things. One: the Gemini key exists only in server environment variables. Two: the browser calls `/api/chat` on my domain, not Google's API directly. Three: I don't return the key from any endpoint -- `GET /api/chat` only exposes a boolean `aiEnabled`. I also rate-limit and cap body size so a public demo can't burn quota as easily. Full notes are in `SECURITY.md`.
+
+**Q: What if someone shares their API key in Slack or email?**
+> Treat it as compromised -- revoke it in the provider console, generate a new one, update Vercel and `.env.local` only. Never commit secrets; if one landed in git history, rotate and scrub history. Same discipline as any production integration.
 
 ---
 

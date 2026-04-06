@@ -9,6 +9,8 @@ export function ThemeToggle() {
   useEffect(() => {
     const stored = localStorage.getItem("meld-theme");
     if (stored === "light") {
+      // Apply persisted theme after mount (avoid SSR/localStorage mismatch).
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional hydration follow-up
       setDark(false);
       document.documentElement.classList.remove("dark");
     }
